@@ -345,18 +345,42 @@ train_pipeline = load_pipeline + [
 #             data_prefix=dict(img='train/rgb'),
 #         )
 # )
-
+# dataset1 = dict(
+#             type=dataset_type,
+#             metainfo=dict(classes=classes),
+#             data_root=data_root,
+#             ann_file='train.json',
+#             data_prefix=dict(img='train/rgb'),
+#             pipeline=train_pipeline
+#         )
+dataset1 = dict(
+    type=dataset_type,
+    metainfo=dict(classes=classes),
+    data_root=data_root,
+    ann_file='train.json',
+    data_prefix=dict(img='train/rgb'),
+    # filter_cfg=dict(filter_empty_gt=True, min_size=32),
+    pipeline=train_pipeline)
+dataset2 = dict(
+            type=dataset_type,
+            metainfo=dict(classes=classes),
+            data_root=data_root_vis,
+            ann_file='annotations/test_tir.json',
+            data_prefix=dict(img='images/test/rgb'),
+            pipeline=train_pipeline
+        )
 train_dataloader = dict(
         batch_size=2, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
-        dataset=dict(
-            type=dataset_type,
-            metainfo=dict(classes=classes),
-            data_root=data_root,
-            ann_file='train.json',
-            data_prefix=dict(img='train/rgb'),
-            pipeline=train_pipeline
-        )
+        dataset = dict(type='ConcatDataset', datasets=[dataset1, dataset2])
+        # dataset=dict(
+        #     type=dataset_type,
+        #     metainfo=dict(classes=classes),
+        #     data_root=data_root_vis,
+        #     ann_file='train.json',
+        #     data_prefix=dict(img='images/train/rgb'),
+        #     pipeline=train_pipeline
+        # )
     )
 
 # follow ViTDet
@@ -382,10 +406,7 @@ val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
     ann_file=data_root + 'val.json')
-# val_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     ann_file=data_root_vis + 'annotations/val_tir.json')
+
 val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
@@ -393,34 +414,27 @@ val_dataloader = dict(dataset=dict(
         ann_file='val.json',
         data_prefix=dict(img='val/rgb'),
         pipeline=test_pipeline))
-# val_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root_vis,
-#         ann_file='annotations/val_tir.json',
-#         data_prefix=dict(img='images/val/rgb'),
-#         pipeline=test_pipeline))
+
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-# test_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     format_only=True,
-#     ann_file=data_root + 'instances_test2017.json',
-#     outfile_prefix='./dual_test_result'
-#     )
+test_evaluator = dict(
+    type='CocoMetric',
+    metric='bbox',
+    format_only=True,
+    ann_file=data_root + 'instances_test2017.json',
+    outfile_prefix='./dual_test_result')
 
-# test_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root,
-#         ann_file='instances_test2017.json',
-#         data_prefix=dict(img='test/rgb'),
-#         pipeline=test_pipeline))
+test_dataloader = dict(dataset=dict(
+        type=dataset_type,
+        metainfo=dict(classes=classes),
+        data_root=data_root,
+        ann_file='instances_test2017.json',
+        data_prefix=dict(img='test/rgb'),
+        pipeline=test_pipeline))
 
 
 optim_wrapper = dict(

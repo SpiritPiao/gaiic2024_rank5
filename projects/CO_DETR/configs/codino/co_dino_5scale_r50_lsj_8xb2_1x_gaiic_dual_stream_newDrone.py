@@ -17,8 +17,7 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
 
 dataset_type = 'DualStreamCocoDataset'
 data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
-data_root = '/root/workspace/data/GAIIC2024/'
-data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
+data_root = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
@@ -353,8 +352,8 @@ train_dataloader = dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
             data_root=data_root,
-            ann_file='train.json',
-            data_prefix=dict(img='train/rgb'),
+            ann_file='annotations/train_tir.json',
+            data_prefix=dict(img='images/train_tir/tir'),
             pipeline=train_pipeline
         )
     )
@@ -381,46 +380,36 @@ test_pipeline = [
 val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
-    ann_file=data_root + 'val.json')
-# val_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     ann_file=data_root_vis + 'annotations/val_tir.json')
+    ann_file=data_root + 'annotations/val_tir.json')
+
 val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
         data_root=data_root,
-        ann_file='val.json',
-        data_prefix=dict(img='val/rgb'),
+        ann_file='annotations/val_tir.json',
+        data_prefix=dict(img='images/val/rgb'),
         pipeline=test_pipeline))
-# val_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root_vis,
-#         ann_file='annotations/val_tir.json',
-#         data_prefix=dict(img='images/val/rgb'),
-#         pipeline=test_pipeline))
+
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-# test_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     format_only=True,
-#     ann_file=data_root + 'instances_test2017.json',
-#     outfile_prefix='./dual_test_result'
-#     )
+test_evaluator = dict(
+    type='CocoMetric',
+    metric='bbox',
+    format_only=True,
+    ann_file=data_root + 'instances_test2017.json',
+    outfile_prefix='./dual_test_result')
 
-# test_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root,
-#         ann_file='instances_test2017.json',
-#         data_prefix=dict(img='test/rgb'),
-#         pipeline=test_pipeline))
+test_dataloader = dict(dataset=dict(
+        type=dataset_type,
+        metainfo=dict(classes=classes),
+        data_root=data_root,
+        ann_file='instances_test2017.json',
+        data_prefix=dict(img='test/rgb'),
+        pipeline=test_pipeline))
 
 
 optim_wrapper = dict(
