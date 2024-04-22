@@ -17,7 +17,7 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
 
 dataset_type = 'DualStreamCocoDataset'
 data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
-
+data_root = '/root/workspace/data/GAIIC2024/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
@@ -346,7 +346,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=1, num_workers=1, 
+        batch_size=2, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -396,6 +396,22 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
+test_evaluator = dict(
+    type='CocoMetric',
+    metric='bbox',
+    format_only=True,
+    ann_file=data_root + 'instances_test2017.json',
+    outfile_prefix='./dual_test_result')
+
+test_dataloader = dict(dataset=dict(
+        type=dataset_type,
+        metainfo=dict(classes=classes),
+        data_root=data_root,
+        ann_file='instances_test2017.json',
+        data_prefix=dict(img='test/rgb'),
+        pipeline=test_pipeline))
+
+
 optim_wrapper = dict(
     _delete_=True,
     type='OptimWrapper',
@@ -429,3 +445,28 @@ log_processor = dict(by_epoch=True)
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
 auto_scale_lr = dict(base_batch_size=8)
+
+tta_model = dict(
+    type='DetTTAModel',
+    tta_cfg=dict(nms=dict(
+                   type='nms',
+                   iou_threshold=0.5),
+                   max_per_img=100))
+
+tta_pipeline = [
+    dict(type='LoadImageFromFile',
+        backend_args=None),
+    dict(
+        type='TestTimeAug',
+        transforms=[[
+            dict(type='Resize', scale=(1333, 800), keep_ratio=True)
+        ], [ # It uses 2 flipping transformations (flipping and not flipping).
+            dict(type='RandomFlip', prob=1.),
+            dict(type='RandomFlip', prob=0.)
+        ], [
+            dict(
+               type='PackDetInputs',
+               meta_keys=('img_id', 'img_path', 'ori_shape',
+                       'img_shape', 'scale_factor', 'flip',
+                       'flip_direction'))
+       ]])]

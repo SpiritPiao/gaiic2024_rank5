@@ -16,11 +16,12 @@ custom_imports = dict(imports=[
                                'mmdet.datasets.transforms.my_transforms'
                                ], allow_failed_imports=False)
 
-load_from = 'https://download.openmmlab.com/mmdetection/v3.0/rtmdet/rtmdet_l_8xb32-300e_coco/rtmdet_l_8xb32-300e_coco_20220719_112030-5a0be7c4.pth'
+load_from = 'rtmdet_l_8xb32-300e_coco_20220719_112030-5a0be7c4.pth'
 debug_flag = False
 
 dataset_type = 'DualStreamCocoDataset'
 data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
+data_root = '/root/workspace/data/GAIIC2024/'
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -204,9 +205,9 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-max_epochs = 300
+max_epochs = 200
 stage2_num_epochs = 20
-base_lr = 0.004
+base_lr = 0.004 * 4
 interval = 1 if debug_flag else 1
 
 train_cfg = dict(

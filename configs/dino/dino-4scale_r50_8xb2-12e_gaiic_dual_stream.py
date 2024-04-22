@@ -4,7 +4,7 @@ _base_ = [
 
 
 custom_imports = dict(imports=[
-                                'mmdet.models.detectors.dino_dual_stream'
+                                'mmdet.models.detectors.dino_dual_stream',
                                 'mmdet.datasets.transforms.my_loading',
                                 'mmdet.datasets.transforms.my_wrapper',
                                 'mmdet.datasets.transforms.my_formatting',
@@ -14,6 +14,7 @@ custom_imports = dict(imports=[
 
 dataset_type = 'DualStreamCocoDataset'
 data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
+data_root = '/root/workspace/data/GAIIC2024/'
 backend_args = None
 num_classes = 5
 
