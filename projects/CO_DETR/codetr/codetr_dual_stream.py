@@ -12,7 +12,7 @@ from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import OptSampleList, SampleList
 from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
-
+# from .dual_resnet import Dual_ResNet
 
 @MODELS.register_module()
 class CoDETR_Dual(BaseDetector):
@@ -98,6 +98,11 @@ class CoDETR_Dual(BaseDetector):
         self.head_idx = head_idx
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
+
+        # self.eaef1 = EAEF(256)
+        # self.eaef2 = EAEF(512)
+        # self.eaef3 = EAEF(1024)
+        # self.eaef4 = EAEF(2048)
         
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
         # Find backbone parameters
@@ -214,11 +219,17 @@ class CoDETR_Dual(BaseDetector):
             has shape (bs, dim, H, W).
         """
                 
-        x = self.backbone1(batch_inputs)
-        y = self.backbone2(batch_inputs2)
+        x = list(self.backbone1(batch_inputs))
+        y = list(self.backbone2(batch_inputs2))
         
-        ## Concat ##
         z = [i + j for i, j in zip(x, y)]
+
+        ## Concat #
+        # x[0], y[0] = self.eaef1([x[0], y[0]])
+        # x[1], y[1] = self.eaef2([x[1], y[1]])
+        # x[2], y[2] = self.eaef3([x[2], y[2]])
+        # x[3], y[3] = self.eaef4([x[3], y[3]])
+
         
         if self.with_neck:
             z = self.neck(z)
@@ -409,3 +420,78 @@ class CoDETR_Dual(BaseDetector):
             mlvl_feats = results[-1]
         return self.bbox_head[self.eval_index].predict(
             mlvl_feats, batch_data_samples, rescale=rescale)
+class EAEF(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.mlp_pool = Feature_Pool(dim)
+        self.dwconv = nn.Conv2d(dim*2,dim*2,kernel_size=7,padding=3,groups=dim)
+        self.ecse = Channel_Attention(dim*2)
+        # self.ccse = Channel_Attention(dim)
+        self.sse_r = Spatial_Attention(dim)
+        self.sse_t = Spatial_Attention(dim)
+    def forward(self, x):
+        ############################################################################
+        RGB,T = x[0], x[1]
+        b, c, h, w = RGB.size()
+        rgb_y = self.mlp_pool(RGB)
+        t_y = self.mlp_pool(T)
+        rgb_y = rgb_y / rgb_y.norm(dim=1, keepdim=True)
+        t_y = t_y / t_y.norm(dim=1, keepdim=True)
+        rgb_y = rgb_y.view(b, c, 1)
+        t_y = t_y.view(b, 1, c)
+        logits_per = c * rgb_y @ t_y
+        cross_gate = torch.diagonal(torch.sigmoid(logits_per)).reshape(b, c, 1, 1)
+        add_gate = torch.ones(cross_gate.shape).cuda() - cross_gate
+        ##########################################################################
+        New_RGB_e = RGB * cross_gate
+        New_T_e = T * cross_gate
+        New_RGB_c = RGB * add_gate
+        New_T_c = T * add_gate
+        x_cat_e = torch.cat((New_RGB_e, New_T_e), dim=1)
+        ##########################################################################
+        fuse_gate_e = torch.sigmoid(self.ecse(self.dwconv(x_cat_e)))
+        rgb_gate_e, t_gate_e = fuse_gate_e[:, 0:c, :], fuse_gate_e[:, c:c * 2, :]
+        ##########################################################################
+        New_RGB = New_RGB_e * rgb_gate_e + New_RGB_c
+        New_T = New_T_e * t_gate_e + New_T_c
+        ##########################################################################
+        New_fuse_RGB = self.sse_r(New_RGB)
+        New_fuse_T = self.sse_t(New_T)
+        attention_vector = torch.cat([New_fuse_RGB, New_fuse_T], dim=1)
+        attention_vector = torch.softmax(attention_vector, dim=1)
+        attention_vector_l, attention_vector_r = attention_vector[:, 0:1, :, :], attention_vector[:, 1:2, :, :]
+        New_RGB = New_RGB * attention_vector_l
+        New_T = New_T * attention_vector_r
+        # New_fuse = New_T + New_RGB
+        out = New_RGB, New_T
+        ##########################################################################
+        return out
+class Feature_Pool(nn.Module):
+    def __init__(self, dim, ratio=2):
+        super(Feature_Pool, self).__init__()
+        self.gap_pool = nn.AdaptiveAvgPool2d(1)
+        self.down = nn.Linear(dim, dim * ratio)
+        self.act = nn.GELU()
+        self.up = nn.Linear(dim * ratio, dim)
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.up(self.act(self.down(self.gap_pool(x).permute(0,2,3,1)))).permute(0,3,1,2).view(b,c)
+        return y
+class Channel_Attention(nn.Module):
+    def __init__(self, dim, ratio=16):
+        super(Channel_Attention, self).__init__()
+        self.gap_pool = nn.AdaptiveMaxPool2d(1)
+        self.down = nn.Linear(dim, dim//ratio)
+        self.act = nn.GELU()
+        self.up = nn.Linear(dim//ratio, dim)
+    def forward(self, x):
+        max_out = self.up(self.act(self.down(self.gap_pool(x).permute(0,2,3,1)))).permute(0,3,1,2)
+        return max_out
+
+class Spatial_Attention(nn.Module):
+    def __init__(self, dim):
+        super(Spatial_Attention, self).__init__()
+        self.conv1 = nn.Conv2d(dim, 1, kernel_size=1,bias=True)
+    def forward(self, x):
+        x1 = self.conv1(x)
+        return x1

@@ -20,7 +20,7 @@ data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GA
 data_root = '/root/workspace/data/GAIIC2024/'
 data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
-# load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
+# load_from = 'co_dino_5scale_r50_lsj_8xb2_1x_coco-69a72d67.pth'  # noqa
 
 image_size = (1024, 1024)
 num_classes = 5
@@ -347,7 +347,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=2, num_workers=1, 
+        batch_size=4, num_workers=4, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -391,6 +391,7 @@ val_dataloader = dict(dataset=dict(
         metainfo=dict(classes=classes),
         data_root=data_root,
         ann_file='val.json',
+        
         data_prefix=dict(img='val/rgb'),
         pipeline=test_pipeline))
 # val_dataloader = dict(dataset=dict(
@@ -406,21 +407,21 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-# test_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     format_only=True,
-#     ann_file=data_root + 'instances_test2017.json',
-#     outfile_prefix='./dual_test_result'
-#     )
+test_evaluator = dict(
+    type='CocoMetric',
+    metric='bbox',
+    format_only=True,
+    ann_file=data_root + 'instances_test2017.json',
+    outfile_prefix='./dual_test_result'
+    )
 
-# test_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root,
-#         ann_file='instances_test2017.json',
-#         data_prefix=dict(img='test/rgb'),
-#         pipeline=test_pipeline))
+test_dataloader = dict(dataset=dict(
+        type=dataset_type,
+        metainfo=dict(classes=classes),
+        data_root=data_root,
+        ann_file='instances_test2017.json',
+        data_prefix=dict(img='test/rgb'),
+        pipeline=test_pipeline))
 
 
 optim_wrapper = dict(
@@ -455,7 +456,7 @@ log_processor = dict(by_epoch=True)
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
-auto_scale_lr = dict(base_batch_size=8)
+auto_scale_lr = dict(base_batch_size=16, enabled = True)
 
 tta_model = dict(
     type='DetTTAModel',

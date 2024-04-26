@@ -4,11 +4,12 @@ from .co_dino_head import CoDINOHead
 from .co_roi_head import CoStandardRoIHead
 from .codetr import CoDETR
 from .codetr_dual_stream import CoDETR_Dual
+from .codetr_dual_stream_backbone import CoDETR_Dual_Backbone
 from .transformer import (CoDinoTransformer, DetrTransformerDecoderLayer,
                           DetrTransformerEncoder, DinoTransformerDecoder)
 
 __all__ = [
     'CoDETR', 'CoDETR_Dual', 'CoDinoTransformer', 'DinoTransformerDecoder', 'CoDINOHead',
     'CoATSSHead', 'CoStandardRoIHead', 'DetrTransformerEncoder',
-    'DetrTransformerDecoderLayer'
+    'DetrTransformerDecoderLayer','CoDETR_Dual_Backbone'
 ]

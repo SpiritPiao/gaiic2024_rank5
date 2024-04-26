@@ -2,7 +2,7 @@ _base_ = ['co_dino_5scale_r50_lsj_8xb2_1x_gaiic_dual_stream.py']
 
 pretrained = 'swin_large_patch4_window12_384_22k.pth'  # noqa
 load_from = 'co_dino_5scale_swin_large_1x_coco-27c13da4.pth'
-load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_1x_coco_dual_Visdrone/epoch_12.pth'
+# load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_1x_coco_dual_Visdrone/epoch_12.pth'
 # model settings
 model = dict(
     backbone=dict(
