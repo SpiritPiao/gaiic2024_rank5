@@ -45,7 +45,7 @@ class CoDETR_Dual(BaseDetector):
         self.eval_module = eval_module
 
         self.backbone1 = MODELS.build(backbone)
-        # self.backbone2 = MODELS.build(backbone)
+        self.backbone2 = MODELS.build(backbone)
         
         if neck is not None:
             self.neck = MODELS.build(neck)
@@ -220,10 +220,10 @@ class CoDETR_Dual(BaseDetector):
         """
                 
         x = list(self.backbone1(batch_inputs2))
-        # y = list(self.backbone2(batch_inputs2))
-        z = x
+        y = list(self.backbone2(batch_inputs2))
+        # z = x
         
-        # z = [i + j for i, j in zip(x, y)]
+        z = [i + j for i, j in zip(x, y)]
 
         ## Concat #
         # x[0], y[0] = self.eaef1([x[0], y[0]])
