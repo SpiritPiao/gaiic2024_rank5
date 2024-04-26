@@ -111,20 +111,20 @@ class CoDETR_Dual_Backbone(BaseDetector):
         ori_backbone_key = []
         for k, v in state_dict.items():
             # if k.startswith("backbone.layer1")  and "layer1_t" not in k:
-            if "backbone.layer" in k and "backbone.t_layer" not in k or  "backbone.conv1" in k:
+            if ("backbone.layer" in k and "backbone.t_layer" not in k) or  ("backbone.conv1" in k and "backbone.conv1_t" not in k):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = True
+                copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
-                state_dict[k] = v
+                # state_dict[k] = v
                 state_dict[k.replace("backbone.layer", "backbone.t_layer")] = copy.deepcopy(v)
                 state_dict[k.replace("backbone.conv1", "backbone.conv1_t")] = copy.deepcopy(v)
                 # del state_dict[k]
             # Force set the strict to "False"
-            strict = False
+            strict = True
         return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 

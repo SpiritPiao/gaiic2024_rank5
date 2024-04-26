@@ -20,7 +20,7 @@ data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GA
 data_root = '/root/workspace/data/GAIIC2024/'
 data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
-# load_from = 'co_dino_5scale_r50_lsj_8xb2_1x_coco-69a72d67.pth'  # noqa
+load_from = 'co_dino_5scale_r50_lsj_8xb2_1x_coco-69a72d67.pth'  # noqa
 
 image_size = (1024, 1024)
 num_classes = 5
