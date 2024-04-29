@@ -10,19 +10,17 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.datasets.transforms.my_loading',
                                'mmdet.datasets.transforms.my_wrapper',
                                'mmdet.datasets.transforms.my_formatting',
-                               'mmdet.datasets.transforms.my_transforms',
-                               'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
                                'mmdet.datasets.my_coco',
-                               'projects.CO_DETR.codetr'
+                               'projects.CO_DETR.codetr',
+                               'projects.CO_DETR.codetr.codetr_dual_stream_reg'
                                ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
 data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
-data_root = '/root/workspace/data/GAIIC2024/'
-data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
+
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
-load_from = 'co_dino_5scale_r50_lsj_8xb2_1x_coco-69a72d67.pth'  # noqa
+# load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
 num_classes = 5
@@ -37,7 +35,7 @@ num_dec_layer = 6
 loss_lambda = 2.0
 
 model = dict(
-    type='CoDETR_Dual',
+    type='CoDETR_Dual_Reg',
     # If using the lsj augmentation,
     # it is recommended to set it to True.
     use_lsj=True,
@@ -306,7 +304,6 @@ load_pipeline = [
     dict(type='LoadImageFromFile2'), # img2 img_path2
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
-    dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
     dict(type='Image2Broadcaster',
         transforms=[
@@ -351,7 +348,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=4, num_workers=4, 
+        batch_size=1, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -385,49 +382,21 @@ test_pipeline = [
 val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
-    classwise=True,
     ann_file=data_root + 'val.json')
-# val_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     ann_file=data_root_vis + 'annotations/val_tir.json')
+
 val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
         data_root=data_root,
         ann_file='val.json',
-        
         data_prefix=dict(img='val/rgb'),
         pipeline=test_pipeline))
-# val_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root_vis,
-#         ann_file='annotations/val_tir.json',
-#         data_prefix=dict(img='images/val/rgb'),
-#         pipeline=test_pipeline))
+
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
-
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
-    )
-
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root=data_root,
-        ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
-
 
 optim_wrapper = dict(
     _delete_=True,
@@ -461,29 +430,4 @@ log_processor = dict(by_epoch=True)
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
-auto_scale_lr = dict(base_batch_size=16, enabled = True)
-
-tta_model = dict(
-    type='DetTTAModel',
-    tta_cfg=dict(nms=dict(
-                   type='nms',
-                   iou_threshold=0.5),
-                   max_per_img=100))
-
-tta_pipeline = [
-    dict(type='LoadImageFromFile',
-        backend_args=None),
-    dict(
-        type='TestTimeAug',
-        transforms=[[
-            dict(type='Resize', scale=(1333, 800), keep_ratio=True)
-        ], [ # It uses 2 flipping transformations (flipping and not flipping).
-            dict(type='RandomFlip', prob=1.),
-            dict(type='RandomFlip', prob=0.)
-        ], [
-            dict(
-               type='PackDetInputs',
-               meta_keys=('img_id', 'img_path', 'ori_shape',
-                       'img_shape', 'scale_factor', 'flip',
-                       'flip_direction'))
-       ]])]
+auto_scale_lr = dict(base_batch_size=8)
