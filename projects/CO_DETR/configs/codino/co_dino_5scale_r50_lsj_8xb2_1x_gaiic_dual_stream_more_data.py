@@ -381,25 +381,26 @@ test_pipeline = [
 val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
+    classwise=True,
     ann_file=data_root + 'val.json')
-val_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    ann_file=data_root_vis + 'annotations/test_tir.json')
-val_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root=data_root,
-        ann_file='val.json',
-        data_prefix=dict(img='val/rgb'),
-        pipeline=test_pipeline))
+# val_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     ann_file=data_root_vis + 'annotations/test_tir.json')
 val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
         data_root=data_root_vis,
-        ann_file='annotations/test_tir.json',
-        data_prefix=dict(img='images/test/rgb'),
+        ann_file='val.json',
+        data_prefix=dict(img='images/val/rgb'),
         pipeline=test_pipeline))
+# val_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         data_root=data_root_vis,
+#         ann_file='annotations/test_tir.json',
+#         data_prefix=dict(img='images/test/rgb'),
+#         pipeline=test_pipeline))
 val_cfg = dict(type='ValLoop')
 test_cfg = dict(type='TestLoop')
 
@@ -409,7 +410,7 @@ test_evaluator = val_evaluator
 # test_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
-#     format_only=True,
+#     format_only=False,
 #     ann_file=data_root + 'instances_test2017.json',
 #     outfile_prefix='./dual_test_result'
 #     )

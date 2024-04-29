@@ -219,7 +219,7 @@ class CoDETR_Dual(BaseDetector):
             has shape (bs, dim, H, W).
         """
                 
-        x = list(self.backbone1(batch_inputs2))
+        x = list(self.backbone1(batch_inputs))
         y = list(self.backbone2(batch_inputs2))
         # z = x
         

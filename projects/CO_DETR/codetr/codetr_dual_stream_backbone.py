@@ -115,7 +115,7 @@ class CoDETR_Dual_Backbone(BaseDetector):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = False
+                copy_ori = True
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):

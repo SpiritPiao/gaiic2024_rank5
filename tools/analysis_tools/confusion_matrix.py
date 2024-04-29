@@ -149,7 +149,6 @@ def analyze_per_img_dets(confusion_matrix,
         if num_tp == 0:  # FN
             confusion_matrix[gt_label, -1] += 1
 
-
 def plot_confusion_matrix(confusion_matrix,
                           labels,
                           save_dir=None,

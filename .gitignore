@@ -122,4 +122,11 @@ work_dirs/
 *.py~
 *.sh~
 
-analysis_datasets/*.jpg
+analysis_datasets
+crop
+*.zip
+1.png
+2.png
+results
+analysis_results
+*.json

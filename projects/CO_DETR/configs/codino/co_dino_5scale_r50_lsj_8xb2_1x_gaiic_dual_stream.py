@@ -10,6 +10,8 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.datasets.transforms.my_loading',
                                'mmdet.datasets.transforms.my_wrapper',
                                'mmdet.datasets.transforms.my_formatting',
+                               'mmdet.datasets.transforms.my_transforms',
+                               'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
                                'mmdet.datasets.my_coco',
                                'projects.CO_DETR.codetr'
@@ -303,6 +305,7 @@ load_pipeline = [
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
+    dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
     dict(type='Image2Broadcaster',
         transforms=[
@@ -381,6 +384,7 @@ test_pipeline = [
 val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
+    classwise=True,
     ann_file=data_root + 'val.json')
 # val_evaluator = dict(
 #     type='CocoMetric',
