@@ -95,6 +95,10 @@ class DualStreamCocoDataset(BaseDetDataset):
             })
             data_list.append(parsed_data_info)
         if self.ANN_ID_UNIQUE:
+            print(len(set(total_ann_ids)))
+            print(len(
+                total_ann_ids
+            ))
             assert len(set(total_ann_ids)) == len(
                 total_ann_ids
             ), f"Annotation ids in '{self.ann_file}' are not unique!"

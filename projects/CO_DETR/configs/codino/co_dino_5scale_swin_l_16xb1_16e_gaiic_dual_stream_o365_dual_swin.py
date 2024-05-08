@@ -1,15 +1,15 @@
-_base_ = ['co_dino_5scale_swin_l_16xb1_1x_coco_dual_more_data.py']
+_base_ = ['co_dino_5scale_r50_lsj_8xb2_1x_gaiic_dual_stream.py']
 
 
 pretrained = 'swin_large_patch4_window12_384_22k.pth'  # noqa
-load_from = 'co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
-#load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data/epoch_16.pth'
-#load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_Visdrone/VisDrone2019_pre_395.pth'
+load_from = '/root/workspace/data/dual_mmdetection/mmdetection/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
+
 # model settings
 model = dict(
+    type='CoDETR_Dual_Swin',
     backbone=dict(
         _delete_=True,
-        type='SwinTransformer',
+        type='Dual_SwinTransformer',
         pretrain_img_size=384,
         embed_dims=192,
         depths=[2, 2, 18, 2],
@@ -33,7 +33,7 @@ model = dict(
         dn_cfg=dict(box_noise_scale=0.4, group_cfg=dict(num_dn_queries=500)),
         transformer=dict(encoder=dict(with_cp=6))))
 
-optim_wrapper = dict(optimizer=dict(lr=5e-5))
+optim_wrapper = dict(optimizer=dict(lr=1e-4))
 
 max_epochs = 16
 train_cfg = dict(max_epochs=max_epochs)

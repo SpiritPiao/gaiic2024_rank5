@@ -124,6 +124,7 @@ work_dirs/
 
 analysis_datasets
 crop
+copy
 *.zip
 1.png
 2.png

@@ -99,25 +99,6 @@ class CopyPaste_Possion(BaseTransform):
         mosaic_bboxes_labels = []
         mosaic_ignore_flags = []
 
-        # if len(results['img'].shape) == 3:
-        #     mosaic_img = np.full(
-        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2), 3),
-        #         self.pad_val,
-        #         dtype=results['img'].dtype)
-        #     mosaic_img2 = np.full(
-        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2), 3),
-        #         self.pad_val,
-        #         dtype=results['img2'].dtype)
-            
-        # else:
-        #     mosaic_img = np.full(
-        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2)),
-        #         self.pad_val,
-        #         dtype=results['img'].dtype)
-        #     mosaic_img2 = np.full(
-        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2)),
-        #         self.pad_val,
-        #         dtype=results['img2'].dtype)
         mosaic_img = results['img']
         mosaic_img2 = results['img2']
             # adjust coordinate
@@ -137,16 +118,17 @@ class CopyPaste_Possion(BaseTransform):
         mosaic_img,mosaic_img2, mosaic_bboxes,mosaic_bboxes_labels,mosaic_ignore_flags = self.pro_copypaste_possion(mosaic_img.shape,mosaic_img, mosaic_img2,mosaic_bboxes,mosaic_bboxes_labels,mosaic_ignore_flags)
 
 
-        if self.bbox_clip_border:
-            mosaic_bboxes.clip_([2 * self.img_scale[1], 2 * self.img_scale[0]])
+        # if self.bbox_clip_border:
+        #     mosaic_bboxes.clip_([2 * self.img_scale[1], 2 * self.img_scale[0]])
         # remove outside bboxes
-        inside_inds = mosaic_bboxes.is_inside(
-            [2 * self.img_scale[1], 2 * self.img_scale[0]]).numpy()
-        mosaic_bboxes = mosaic_bboxes[inside_inds]
-        mosaic_bboxes_labels = mosaic_bboxes_labels[inside_inds]
-        mosaic_ignore_flags = mosaic_ignore_flags[inside_inds]
+        # inside_inds = mosaic_bboxes.is_inside(
+        #     [2 * self.img_scale[1], 2 * self.img_scale[0]]).numpy()
+        # mosaic_bboxes = mosaic_bboxes[inside_inds]
+        # mosaic_bboxes_labels = mosaic_bboxes_labels[inside_inds]
+        # mosaic_ignore_flags = mosaic_ignore_flags[inside_inds]
 
         results['img'] = mosaic_img
+        results['img_2'] = mosaic_img2
         results['img_shape'] = mosaic_img.shape[:2]
         results['gt_bboxes'] = mosaic_bboxes
         results['gt_bboxes_labels'] = mosaic_bboxes_labels
@@ -188,17 +170,17 @@ class CopyPaste_Possion(BaseTransform):
             # cv2.imwrite("crop/crop_{}.png".format(str(self.number)), cropped)
             
             # cv2.imwrite("crop/crop_tir_{}.png".format(str(self.number)), cropped_2)
-            self.number += 1
+            # self.number += 1
             if use_cache:
                 
                 self.cropp_img.append(copy.deepcopy(cropped))
                 self.cropp_img_2.append(copy.deepcopy(cropped_2))
                 self.cropp_img_class.append(copy.deepcopy(class_name))
-                if class_name in [1, 3, 4]:
-                    self.cropp_img.append(copy.deepcopy(cropped))
-                    self.cropp_img_2.append(copy.deepcopy(cropped_2))
-                    self.cropp_img_class.append(copy.deepcopy(class_name))
-                # self.origin_p.append([x_p, y_p])
+                # if class_name in [1, 3, 4]:
+                #     self.cropp_img.append(copy.deepcopy(cropped))
+                #     self.cropp_img_2.append(copy.deepcopy(cropped_2))
+                #     self.cropp_img_class.append(copy.deepcopy(class_name))
+
             else:
                 cropp_img.append(copy.deepcopy(cropped))
                 self.cropp_img_2.append(copy.deepcopy(cropped_2))
@@ -252,17 +234,11 @@ class CopyPaste_Possion(BaseTransform):
                     if random.random() < 0.25:
                         im = np.rot90(im, -1)
                         im_2 = np.rot90(im_2, -1)
-                        # if bigger:
-                        #     temp = x_p
-                        #     x_p = y_p
-                        #     y_p = temp
+
                     elif random.random() < 0.25:
                         im = np.rot90(im, 1)
                         im_2 = np.rot90(im_2, 1)
-                        # if bigger:
-                        #     temp = x_p
-                        #     x_p = y_p
-                        #     y_p = temp
+
                     elif random.random() < 0.25:
                         im = np.rot90(im, 2)
                         im_2 = np.rot90(im_2, 2)
@@ -270,30 +246,11 @@ class CopyPaste_Possion(BaseTransform):
                         pass
                     W = im.shape[1]
                     H = im.shape[0]
-                    # W_2 = im_2.shape[1]
-                    # H_2 = im_2.shape[0]
-                    # print(W, H)
-                    # print(W_2, H_2)
+
                 point = [random.randint(20, img4.shape[1] - W -20), random.randint(20, img4.shape[0] -H- 20)]
 
                 if data_type == 'copy':
-                    # while True:
-                    #     # 生成随机点
-                    #     point = [random.randint(20, img4.shape[1] - W -20), random.randint(20, img4.shape[0] -H- 20)]
-
-                    #     # 计算区域的右下角坐标
-                    #     region_bottom_right = [point[0] + W, point[1] + H]
-
-                    #     # 检查区域是否超出图像边界
-                    #     if region_bottom_right[0] <= img4.shape[1] and region_bottom_right[1] <= img4.shape[0]:
-                    #         # 将 im 分配给区域
-                    #         img4[point[1]:region_bottom_right[1], point[0]:region_bottom_right[0]] = im
-                    #         img4_2[point[1]:region_bottom_right[1], point[0]:region_bottom_right[0]] = im_2
-                    #         break  # 退出循环
-                    #     else:
-                    #         # 如果区域超出了图像边界，继续循环
-                    #         print("wrong")
-                    #         continue
+                
                     img4[point[1]:point[1] + H, point[0]:point[0] + W] = im
                     img4_2[point[1]:point[1] + H, point[0]:point[0] + W] = im_2
                 elif data_type == 'mixup':
@@ -312,35 +269,24 @@ class CopyPaste_Possion(BaseTransform):
                         print('possion fail')
                         img4[point[1]:point[1] + H, point[0]:point[0] + W] = im
                         img4_2[point[1]:point[1] + H, point[0]:point[0] + W] = im_2
-                        # r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
-                        # im = (im * r + img4[point[1]:point[1] + H, point[0]:point[0] + W] * (1 - r)).astype(np.uint8)
-                        # img4[point[1]:point[1] + H, point[0]:point[0] + W] = im
 
-                # if bigger:
-                #     labels_single_img = np.array([[point[0] + x_p, point[1]  + y_p, point[0] + W  - x_p, point[1] + H  - y_p]],
-                #                                  dtype=np.float32)
-                # else:
                 labels_single_img = np.array([[point[0], point[1], point[0] + W, point[1] + H]],
                                                  dtype=np.float32)
-                
+                # r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
+                # img4 = (img4 * r + img4_2 * (1 - r)).astype(np.uint8)
                 # cv2.rectangle(img4, (point[0], point[1]), (point[0] + W, point[1] + H),
                 #               (0, 0, 0), 2)
                 # cv2.putText(img4, str(class_name), (point[0], point[1] ), cv2.FONT_HERSHEY_SIMPLEX, 1,
                 #             (0, 0, 0), 2)
-                
                 # cv2.rectangle(img4_2, (point[0], point[1]), (point[0] + W, point[1] + H),
                 #               (0, 0, 0), 2)
                 # cv2.putText(img4_2, str(class_name), (point[0], point[1] ), cv2.FONT_HERSHEY_SIMPLEX, 1,
                 #             (0, 0, 0), 2)
-                #
-                # cv2.namedWindow("Demo", cv2.WINDOW_NORMAL)
-                # cv2.resizeWindow("Demo", 1280, 800)
-                # cv2.imshow("Demo", img4)
-                # cv2.waitKey(0)  # 等待用户按键触发
-                # cv2.imwrite("1.png", img4)
-                # cv2.imwrite("2.png", img4_2)
-                # labels4_numpy = np.concatenate((labels_single_img, labels4.tensor.numpy()), 0)
-                # labels4.tensor = torch.cat((labels4.tensor, torch.tensor(labels_single_img)), 0)
+                # cv2.imwrite("copy/copy_{}.png".format(str(self.number)), img4)
+        
+                # cv2.imwrite("copy/copy_tir_{}.png".format(str(self.number)), img4_2)
+                # self.number += 1
+                
                 labels4.tensor = torch.cat((labels4.tensor, torch.tensor(labels_single_img)), 0)
 
                 class4 = np.append(class4, class_name)
@@ -367,7 +313,171 @@ class CopyPaste_Possion(BaseTransform):
         repr_str += f'prob={self.prob})'
         return repr_str
     
+@TRANSFORMS.register_module()
+class Pre_Pianyi(BaseTransform):
 
+
+    def __init__(self,
+                 canvas_size: Tuple[int, int] = (640, 640),
+                 p: float = 1.0,
+                 img_scale: Tuple[int, int] = (640, 640),
+                 center_ratio_range: Tuple[float, float] = (0.5, 1.5),
+                 bbox_clip_border: bool = True,
+                 pad_val: float = 114.0,
+                 prob: float = 1.0) -> None:
+        assert isinstance(img_scale, tuple)
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+
+        log_img_scale(img_scale, skip_square=True, shape_order='wh')
+        self.img_scale = img_scale
+        self.center_ratio_range = center_ratio_range
+        self.bbox_clip_border = bbox_clip_border
+        self.pad_val = pad_val
+        self.prob = prob
+        self.cropp_img = []
+        self.cropp_img_class = []
+        self.cropp_img_2 = []
+        self.number = 0
+        self.canvas_size = canvas_size
+        self.p = p
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        """Call function to collect indexes.
+
+        Args:
+            cache (list): The results cache.
+
+        Returns:
+            list: indexes.
+        """
+
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        # print(1)
+
+        if  random.random() < self.p:
+            # self.canvas_size = (660, 532)
+            canvas = np.full((self.canvas_size[1], self.canvas_size[0], 3),114.0,dtype=np.uint8)
+            img1 = results['img']
+            image_size = img1.shape[:2]  
+            max_left = self.canvas_size[0] - image_size[1]  
+            max_top = self.canvas_size[1] - image_size[0]  
+            random_left = random.randint(0, max_left)
+            random_top = random.randint(0, max_top)
+            canvas[random_top:random_top+image_size[0], random_left:random_left+image_size[1]] = img1
+            crop_size = (image_size[1]  , image_size[0])
+
+            x_min = random.randint(0, self.canvas_size[0] - crop_size[0])  
+            y_min = random.randint(0, self.canvas_size[1] - crop_size[1])  
+            cropped_image = canvas[y_min:y_min+crop_size[1], x_min:x_min+crop_size[0]]
+            # print(1)
+            
+            results['img'] = cropped_image
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+
+@TRANSFORMS.register_module()
+class Pre_mixup(BaseTransform):
+
+
+    def __init__(self,
+                 img_scale: Tuple[int, int] = (640, 640),
+                 center_ratio_range: Tuple[float, float] = (0.5, 1.5),
+                 bbox_clip_border: bool = True,
+                 pad_val: float = 114.0,
+                 prob: float = 1.0) -> None:
+        assert isinstance(img_scale, tuple)
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+
+        log_img_scale(img_scale, skip_square=True, shape_order='wh')
+        self.img_scale = img_scale
+        self.center_ratio_range = center_ratio_range
+        self.bbox_clip_border = bbox_clip_border
+        self.pad_val = pad_val
+        self.prob = prob
+        self.cropp_img = []
+        self.cropp_img_class = []
+        self.cropp_img_2 = []
+        self.number = 0
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        """Call function to collect indexes.
+
+        Args:
+            cache (list): The results cache.
+
+        Returns:
+            list: indexes.
+        """
+
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        """Mosaic transform function.
+
+        Args:
+            results (dict): Result dict.
+
+        Returns:
+            dict: Updated result dict.
+        """
+        # self.results_cache.append(copy.deepcopy(results))
+
+        # if len(self.cropp_img) <= 4:
+        #     return results
+
+
+        # TODO: refactor mosaic to reuse these code.
+        mosaic_bboxes = []
+        mosaic_bboxes_labels = []
+        mosaic_ignore_flags = []
+
+        # if len(results['img'].shape) == 3:
+        #     mosaic_img = np.full(
+        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2), 3),
+        #         self.pad_val,
+        #         dtype=results['img'].dtype)
+        #     mosaic_img2 = np.full(
+        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2), 3),
+        #         self.pad_val,
+        #         dtype=results['img2'].dtype)
+            
+        mixup_img1 = results['img']
+        mixup_img2 = results['img2']
+        r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
+        mixup_img1 = (mixup_img1 * r + mixup_img2 * (1 - r)).astype(np.uint8)
+         
+        results['img'] = mixup_img1
+        results['img_2'] = mixup_img2
+
+        return results
+   
+
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
 
 @TRANSFORMS.register_module()
 class CachedMosaic2Images_Possion(Mosaic):

@@ -11,6 +11,7 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.datasets.transforms.my_wrapper',
                                'mmdet.datasets.transforms.my_formatting',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
+                               'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.datasets.my_coco',
                                'projects.CO_DETR.codetr'
                                ], allow_failed_imports=False)
@@ -302,7 +303,10 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
+    dict(type='Pre_Pianyi', canvas_size = (660, 632), p=1),
+
+   # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
+
 
     dict(type='Image2Broadcaster',
         transforms=[
@@ -320,6 +324,7 @@ load_pipeline = [
                 dict(type='RandomFlip', prob=0.5),
         ]
     ),
+    dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(type='Branch',
          transforms=[
                  dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
@@ -347,7 +352,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=4, num_workers=1, 
+        batch_size=2, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -364,6 +369,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
+    dict(type='Pre_Pianyi', canvas_size = (660, 632), p=1),
 
     dict(type='Branch',
          transforms=[
@@ -407,27 +413,28 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-# test_evaluator = dict(
-#     type='CocoMetric',
-#     metric='bbox',
-#     format_only=False,
-#     ann_file=data_root + 'instances_test2017.json',
-#     outfile_prefix='./dual_test_result'
-#     )
+test_evaluator = dict(
+    type='CocoMetric',
+    metric='bbox',
+    format_only=True,
+    ann_file=data_root + 'instances_test2017.json',
+    outfile_prefix='./dual_test_result'
+    )
 
-# test_dataloader = dict(dataset=dict(
-#         type=dataset_type,
-#         metainfo=dict(classes=classes),
-#         data_root=data_root,
-#         ann_file='instances_test2017.json',
-#         data_prefix=dict(img='test/rgb'),
-#         pipeline=test_pipeline))
+test_dataloader = dict(dataset=dict(
+        type=dataset_type,
+        metainfo=dict(classes=classes),
+        data_root=data_root,
+        
+        ann_file='instances_test2017.json',
+        data_prefix=dict(img='test/rgb'),
+        pipeline=test_pipeline))
 
 
 optim_wrapper = dict(
     _delete_=True,
     type='OptimWrapper',
-    optimizer=dict(type='AdamW', lr=2e-4, weight_decay=0.0001),
+    optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
     clip_grad=dict(max_norm=0.1, norm_type=2),
     paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
 
@@ -456,7 +463,7 @@ log_processor = dict(by_epoch=True)
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
-auto_scale_lr = dict(base_batch_size=8)
+# auto_scale_lr = dict(base_batch_size=16, enabled = True)
 
 tta_model = dict(
     type='DetTTAModel',

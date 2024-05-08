@@ -11,6 +11,7 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.datasets.transforms.my_wrapper',
                                'mmdet.datasets.transforms.my_formatting',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
+                               'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.datasets.my_coco',
                                'projects.CO_DETR.codetr'
                                ], allow_failed_imports=False)
@@ -301,7 +302,9 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
+    
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
+    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
     dict(type='Image2Broadcaster',
         transforms=[
@@ -346,7 +349,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=2, num_workers=1, 
+        batch_size=4, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -444,4 +447,4 @@ log_processor = dict(by_epoch=True)
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
-auto_scale_lr = dict(base_batch_size=8, enable = True)
+auto_scale_lr = dict(base_batch_size=16, enabled = True)
