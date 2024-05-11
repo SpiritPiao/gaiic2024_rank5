@@ -1,9 +1,12 @@
 import copy
+import math
+import time
 from turtle import forward
 from typing import Any, Mapping, Tuple, Union
 
 import cv2
 from mmengine.optim import OptimWrapper
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -15,6 +18,61 @@ from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 
 from mmdet.models.layers.registration import SpatialTransformer
 from projects.CO_DETR.codetr.registration_net import Unet
+from torch.nn import functional as F
+
+def ncc_loss(y_true, y_pred):
+
+    I = y_true
+    J = y_pred
+
+    # get dimension of volume
+    # assumes I, J are sized [batch_size, *vol_shape, nb_feats]
+    ndims = len(list(I.size())) - 2
+    assert ndims in [1, 2, 3], "volumes should be 1 to 3 dimensions. found: %d" % ndims
+
+    # set window size
+    win = [9] * ndims
+
+    # compute filters
+    sum_filt = torch.ones([1, 1, *win]).to(y_pred.device)
+
+    pad_no = math.floor(win[0]/2)
+
+    if ndims == 1:
+        stride = (1)
+        padding = (pad_no)
+    elif ndims == 2:
+        stride = (1,1)
+        padding = (pad_no, pad_no)
+    else:
+        stride = (1,1,1)
+        padding = (pad_no, pad_no, pad_no)
+
+    # get convolution function
+    conv_fn = getattr(F, 'conv%dd' % ndims)
+
+    # compute CC squares
+    I2 = I * I
+    J2 = J * J
+    IJ = I * J
+
+    I_sum = conv_fn(I, sum_filt, stride=stride, padding=padding)
+    J_sum = conv_fn(J, sum_filt, stride=stride, padding=padding)
+    I2_sum = conv_fn(I2, sum_filt, stride=stride, padding=padding)
+    J2_sum = conv_fn(J2, sum_filt, stride=stride, padding=padding)
+    IJ_sum = conv_fn(IJ, sum_filt, stride=stride, padding=padding)
+
+    win_size = np.prod(win)
+    u_I = I_sum / win_size
+    u_J = J_sum / win_size
+
+    cross = IJ_sum - u_J * I_sum - u_I * J_sum + u_I * u_J * win_size
+    I_var = I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size
+    J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size
+
+    cc = cross * cross / (I_var * J_var + 1e-5)
+
+    return -torch.mean(cc)
 
 
 @MODELS.register_module()
@@ -39,7 +97,7 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
             eval_index=0,
             data_preprocessor: OptConfigType = None,
             init_cfg: OptMultiConfig = None):
-        super(CoDETR_Dual_Reg, self).__init__(
+        super(CoDETR_Dual_Reg_V2, self).__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
         self.with_pos_coord = with_pos_coord
         self.use_lsj = use_lsj
@@ -101,7 +159,7 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
         self.head_idx = head_idx
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
-        intput_channels = 3
+        intput_channels = 1
         self.reg_net = Unet(intput_channels * 2)
         self.spt = SpatialTransformer(size=(1024, 1024))
         # configure unet to flow field layer
@@ -218,7 +276,7 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
                 or (hasattr(self, 'bbox_head') and self.bbox_head is not None
                     and len(self.bbox_head) > 0))
 
-    def extract_feat(self, batch_inputs: Tensor, batch_inputs2: Tensor, output_flow=False) -> Tuple[Tensor]:
+    def extract_feat(self, batch_inputs: Tensor, batch_inputs2: Tensor, output_flow=False, mode=None) -> Tuple[Tensor]:
         """Extract features.
 
         Args:
@@ -229,14 +287,58 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
             has shape (bs, dim, H, W).
         """
 
-        ## Align Inputs ##
-        flow = self.flow(self.reg_net(batch_inputs, batch_inputs2))
-        flow = torch.clamp(flow, -128, 128)
-        # print(flow.shape, flow.max(), flow.min())
+        ## Align Inputs
+        
+        # downsample_batch_inputs = F.interpolate(batch_inputs, size=[512, 512])
+        # downsample_batch_inputs2 = F.interpolate(batch_inputs2, size=[512, 512])
+        if output_flow:
+            # Generate random affine matrix
+            B = batch_inputs.size(0)
+            input_shape = batch_inputs.shape
+            
+            rotation = (torch.rand(B, 1, 1) - 0.5) * torch.pi / 12
+            rotation = torch.expand_copy(rotation, (B, 2, 2))
+
+            rotation[:, 0, 0] = torch.cos(rotation[:, 0, 0])
+            rotation[:, 1, 1] = torch.cos(rotation[:, 1, 1])
+            rotation[:, 0, 1] = torch.sin(-rotation[:, 0, 1])
+            rotation[:, 1, 0] = torch.sin(rotation[:, 1, 0])
+
+            transpose = torch.clamp(torch.normal(mean=0, std=1, size=(B, 2, 1)) * 0.16, -0.2, 0.2)
+            theta = torch.concat([rotation, transpose], dim=2) # B, 2, 3
+            assert theta.shape == (B, 2, 3)
+
+            grid = F.affine_grid(theta, input_shape, align_corners=True)\
+                .to(dtype=batch_inputs.dtype, device=batch_inputs.device, non_blocking=True)
+            
+            # from mmdet.visualization.local_visualizer import DetLocalVisualizer
+            # dv = DetLocalVisualizer()
+            image_before = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            # image2 = inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            # dv.add_datasample('image', image, data_samples[0], draw_gt=True, show=True)
+            # dv.add_datasample('image2', image2, data_samples[0], draw_gt=True, show=True)
+            moving_batch_inputs = batch_inputs.detach()
+            batch_inputs =  F.grid_sample(moving_batch_inputs, grid, align_corners=True, padding_mode="border")
+            image_after = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            
+        ori_size = [1024, 1024]
+        downsample_inputs = F.interpolate(batch_inputs, [256, 256])
+        downsample_moving_batch_inputs = F.interpolate(batch_inputs2, [256, 256])
+        ds_flow = self.flow(self.reg_net(downsample_inputs[:, 0:1], downsample_moving_batch_inputs[:, 0:1]))
+        flow = F.interpolate(ds_flow, ori_size, mode=self.spt.mode) * ori_size[0] / 256
+        
+        flow = (torch.sigmoid(flow) - 0.5) * 128 * 4
+        print(flow.shape, flow.max(), flow.min())
         moved_batch_inputs = self.spt.forward(batch_inputs, flow)
+        image_back = moved_batch_inputs.detach().permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+        if time.time_ns() % 8 == 0:
+            cv2.imwrite("regnet_fixed.jpg", image_before)
+            cv2.imwrite("regnet_moving.jpg", image_after)
+            cv2.imwrite("regnet_moved.jpg", image_back)
         
         x = self.backbone1(moved_batch_inputs)
-        y = self.backbone2(batch_inputs2)
+        y = x
+        # y = self.backbone2(batch_inputs2)
         
         ## Concat ##
         z = [i + j for i, j in zip(x, y)]
@@ -245,7 +347,7 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
             z = self.neck(z)
             
         if output_flow:
-            return z, flow
+            return z, flow, moved_batch_inputs
         return z
 
     def _forward(self,
@@ -267,8 +369,8 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
                 input_img_h, input_img_w = batch_input_shape
                 img_metas['img_shape'] = [input_img_h, input_img_w]
 
-        x, flow = self.extract_feat(batch_inputs, batch_inputs2, output_flow=True)
-
+        x, flow, moved_batch_inputs = self.extract_feat(batch_inputs, batch_inputs2, output_flow=True, mode="train")
+        # pred_grid = self.spt.get_locs(-flow)
         losses = dict()
 
         def upd_loss(losses, idx, weight=1):
@@ -285,11 +387,26 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
             new_losses2 = dict()
             dy = torch.abs(flow[:, :, 1:, :] - flow[:, :, :-1, :])
             dx = torch.abs(flow[:, :, :, 1:] - flow[:, :, :, :-1])
-            new_losses2['flow_grad_loss'] = 0.1 * (torch.mean(dx) + torch.mean(dy))
+            new_losses2['flow_grad_loss'] = 10 * (torch.mean(dx) + torch.mean(dy))
             return new_losses2
 
-        losses.update(flow_grad_loss(flow))
+        def sim_loss(moved_batch_inputs, batch_inputs):
+            new_losses3 = dict()
+            # diff = moved_batch_inputs - batch_inputs
+            new_losses3['reg_sim_loss'] = 100 * ncc_loss(batch_inputs.mean(1, True), moved_batch_inputs.mean(1, True))
+            return new_losses3
 
+        def flow_l1_loss(moved_batch_inputs, batch_inputs):
+            new_losses4 = dict()
+            diff = moved_batch_inputs - batch_inputs
+            new_losses4['flow_reg_loss'] = 100 * torch.mean(torch.abs(diff))
+            return new_losses4
+
+        losses.update(flow_grad_loss(flow))
+        # losses.update(flow_l1_loss(gt_grid, pred_grid))
+        losses.update(sim_loss(moved_batch_inputs, batch_inputs2))
+        # print(losses)
+        return losses
         # DETR encoder and decoder forward
         if self.with_query_head:
             bbox_losses, x = self.query_head.loss(x, batch_data_samples)
@@ -391,7 +508,7 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
                 input_img_h, input_img_w = img_metas['batch_input_shape']
                 img_metas['img_shape'] = [input_img_h, input_img_w]
 
-        img_feats = self.extract_feat(batch_inputs, batch_inputs2)
+        img_feats = self.extract_feat(batch_inputs, batch_inputs2, mode="predict")
         if self.with_bbox and self.eval_module == 'one-stage':
             results_list = self.predict_bbox_head(
                 img_feats, batch_data_samples, rescale=rescale)

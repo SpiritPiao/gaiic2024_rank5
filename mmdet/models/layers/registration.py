@@ -27,6 +27,24 @@ class SpatialTransformer(nn.Module):
         # see: https://discuss.pytorch.org/t/how-to-register-buffer-without-polluting-state-dict
         self.register_buffer('grid', grid)
 
+    def get_locs(self, flow):
+        new_locs = self.grid + flow
+        shape = flow.shape[2:]
+
+        # need to normalize grid values to [-1, 1] for resampler
+        for i in range(len(shape)):
+            new_locs[:, i, ...] = 2 * (new_locs[:, i, ...] / (shape[i] - 1) - 0.5)
+
+        # move channels dim to last position
+        # also not sure why, but the channels need to be reversed
+        if len(shape) == 2:
+            new_locs = new_locs.permute(0, 2, 3, 1)
+            new_locs = new_locs[..., [1, 0]]
+        elif len(shape) == 3:
+            new_locs = new_locs.permute(0, 2, 3, 4, 1)
+            new_locs = new_locs[..., [2, 1, 0]]
+        return new_locs
+
     def forward(self, src, flow):
         # new locations
         new_locs = self.grid + flow

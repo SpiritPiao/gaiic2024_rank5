@@ -306,7 +306,8 @@ load_pipeline = [
     dict(type='LoadImageFromFile2'), # img2 img_path2
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
-    dict(type='Pre_Pianyi'),
+    dict(type='BBox_Jitter'),
+    dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
     
     # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
@@ -370,7 +371,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    # dict(type='Pre_Pianyi'),
+    # dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
 
     dict(type='Branch',
          transforms=[
@@ -466,33 +467,98 @@ log_processor = dict(by_epoch=True)
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
 auto_scale_lr = dict(base_batch_size=8, enabled = True)
 
+
 tta_model = dict(
     type='DetTTAModel',
-    tta_cfg=dict(nms=dict(
-                   type='nms',
-                   iou_threshold=0.5),
-                   max_per_img=100))
-
+    tta_cfg=dict(nms=dict(type='nms', iou_threshold=0.6), max_per_img=100))
+dict(
+        type='Branch',
+        transforms=[
+            dict(type='Pad', size=(640, 640), pad_val=dict(img=(114, 114, 114))),
+        ]
+    ),
+img_scales = [(640, 640), (320, 320), (960, 960)]
+img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
+img_scales = [(1024, 1024), (1280, 1280), (768, 768)]
 tta_pipeline = [
-    dict(type='LoadImageFromFile',
-        backend_args=None),
+    dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),
     dict(
         type='TestTimeAug',
-        transforms=[[
-            dict(type='Resize', scale=(1333, 800), keep_ratio=True)
-        ], [ # It uses 2 flipping transformations (flipping and not flipping).
-            dict(type='RandomFlip', prob=1.),
-            dict(type='RandomFlip', prob=0.)
-        ], [
-            dict(
-                type='DoublePackDetInputs',
-                meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape', 'img_path2', 'ori_shape2', 'img_shape2',
-                        'scale_factor', 'scale_factor', 'flip',
-                       'flip_direction'))
-            # dict(
-            #    type='PackDetInputs',
-            #    meta_keys=('img_id', 'img_path', 'ori_shape',
-            #            'img_shape', 'scale_factor', 'flip',
-            #            'flip_direction'))
-       ]])]
+        transforms=[
+            [
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='Resize', scale=s, keep_ratio=True)]
+                )
+                for s in img_scales
+            ],
+            [
+                # ``RandomFlip`` must be placed before ``Pad``, otherwise
+                # bounding box coordinates after flipping cannot be
+                # recovered correctly.
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='RandomFlip', prob=1.)]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='RandomFlip', prob=0.)]
+                )
+                # dict(type='RandomFlip', prob=1.),
+                # dict(type='RandomFlip', prob=0.)
+            ],
+            [
+                dict(
+                    type='Branch',
+                    transforms=[
+                        dict(
+                            type='Pad',
+                            size=image_size,
+                            pad_val=dict(img=(114, 114, 114))
+                        )
+                    ]
+                ),
+            ],
+            [dict(type='LoadAnnotations', with_bbox=True)],
+            [
+                dict(
+                    type='DoublePackDetInputs',
+                    meta_keys=('img_id', 'img_path', 'img_path2','ori_shape', 'img_shape', 'ori_shape2', 'img_shape2',
+                               'scale_factor', 'flip', 'flip_direction'))
+            ]
+        ])
+]
+
+
+
+# tta_model = dict(
+#     type='DetTTAModel',
+#     tta_cfg=dict(nms=dict(
+#                    type='nms',
+#                    iou_threshold=0.6),
+#                    max_per_img=100))
+
+# tta_pipeline = [
+#     dict(type='LoadImageFromFile',
+#         backend_args=None),
+#     dict(type='LoadImageFromFile2'),
+#     dict(
+#         type='TestTimeAug',
+#         transforms=[[
+#             dict(type='Resize', scale=(1333, 800), keep_ratio=True)
+#         ], [ # It uses 2 flipping transformations (flipping and not flipping).
+#             dict(type='RandomFlip', prob=1.),
+#             dict(type='RandomFlip', prob=0.)
+#         ], [
+#             dict(
+#                 type='DoublePackDetInputs',
+#                 meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape', 'img_path2', 'ori_shape2', 'img_shape2',
+#                         'scale_factor', 'scale_factor', 'flip',
+#                        'flip_direction'))
+#             # dict(
+#             #    type='PackDetInputs',
+#             #    meta_keys=('img_id', 'img_path', 'ori_shape',
+#             #            'img_shape', 'scale_factor', 'flip',
+#             #            'flip_direction'))
+#        ]])]

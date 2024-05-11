@@ -34,7 +34,7 @@ model = dict(
 
 optim_wrapper = dict(optimizer=dict(lr=1e-4))
 
-max_epochs = 16
+max_epochs = 12
 train_cfg = dict(max_epochs=max_epochs)
 
 param_scheduler = [

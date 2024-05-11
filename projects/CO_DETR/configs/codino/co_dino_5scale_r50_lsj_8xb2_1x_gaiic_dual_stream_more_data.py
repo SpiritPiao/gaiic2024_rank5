@@ -303,7 +303,8 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(type='Pre_Pianyi', canvas_size = (660, 632), p=1),
+    dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
+    dict(type='BBox_Jitter'),
 
    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
@@ -369,7 +370,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(type='Pre_Pianyi', canvas_size = (660, 632), p=1),
+    dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
 
     dict(type='Branch',
          transforms=[

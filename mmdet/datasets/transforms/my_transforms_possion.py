@@ -335,23 +335,11 @@ class Pre_Pianyi(BaseTransform):
         self.bbox_clip_border = bbox_clip_border
         self.pad_val = pad_val
         self.prob = prob
-        self.cropp_img = []
-        self.cropp_img_class = []
-        self.cropp_img_2 = []
         self.number = 0
         self.canvas_size = canvas_size
         self.p = p
     @cache_randomness
     def get_indexes(self, cache: list) -> list:
-        """Call function to collect indexes.
-
-        Args:
-            cache (list): The results cache.
-
-        Returns:
-            list: indexes.
-        """
-
         indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
         return indexes
 
@@ -388,6 +376,66 @@ class Pre_Pianyi(BaseTransform):
         repr_str += f'pad_val={self.pad_val}, '
         repr_str += f'prob={self.prob})'
         return repr_str
+
+@TRANSFORMS.register_module()
+class BBox_Jitter(BaseTransform):
+
+
+    def __init__(self,
+                prob: float = 0.5,
+                max_shift_px: int = 4,
+                filter_thr_px: int = 1,
+                unchange_thr_px: int = 200) -> None:
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+
+        assert max_shift_px >= 0
+        self.prob = prob
+        self.max_shift_px = max_shift_px
+        self.filter_thr_px = int(filter_thr_px)
+        self.unchange_thr_px = int(unchange_thr_px)
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+
+
+        gt_bboxes = results['gt_bboxes']
+        img_shape = results['img'].shape[:2]
+        for i in range(len(gt_bboxes)):
+            gt_bbox = gt_bboxes[i].clone()
+
+            if (gt_bbox.cxcywh[0, 2:]).min() > self.unchange_thr_px and random.random() < self.prob:
+                random_shift_x = random.randint(-self.max_shift_px,
+                                                self.max_shift_px)
+                random_shift_y = random.randint(-self.max_shift_px,
+                                                self.max_shift_px)
+                gt_bbox.translate_([random_shift_x, random_shift_y])
+
+                # clip border
+                gt_bbox.clip_(img_shape)
+
+                if gt_bbox.cxcywh[0, 2:].min() > self.filter_thr_px:
+                    gt_bboxes[i] = gt_bbox
+
+    
+            
+        results['gt_bboxes'] = gt_bboxes
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+
 
 @TRANSFORMS.register_module()
 class Pre_mixup(BaseTransform):

@@ -109,7 +109,7 @@ train_pipeline = [
 ]
 
 train_dataloader = dict(
-        batch_size=4, num_workers=10, 
+        batch_size=2, num_workers=10, 
         dataset=dict(
             type=dataset_type,
             metainfo=dict(classes=classes),

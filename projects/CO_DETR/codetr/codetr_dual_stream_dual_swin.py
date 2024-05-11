@@ -113,7 +113,7 @@ class CoDETR_Dual_Swin(BaseDetector):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = True
+                copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
@@ -495,3 +495,4 @@ class Spatial_Attention(nn.Module):
     def forward(self, x):
         x1 = self.conv1(x)
         return x1
+    
