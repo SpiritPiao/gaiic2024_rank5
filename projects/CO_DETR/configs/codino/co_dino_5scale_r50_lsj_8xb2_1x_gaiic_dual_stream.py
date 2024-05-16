@@ -306,8 +306,10 @@ load_pipeline = [
     dict(type='LoadImageFromFile2'), # img2 img_path2
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
-    dict(type='BBox_Jitter'),
     dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
+    # dict(type='BBox_Jitter'),
+
+    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
     
     # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 

@@ -19,6 +19,7 @@ from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 from mmdet.models.layers.registration import SpatialTransformer
 from projects.CO_DETR.codetr.registration_net import Unet
 from torch.nn import functional as F
+from torchvision.transforms import v2
 
 def ncc_loss(y_true, y_pred):
 
@@ -293,34 +294,37 @@ class CoDETR_Dual_Reg_V2(BaseDetector):
         # downsample_batch_inputs2 = F.interpolate(batch_inputs2, size=[512, 512])
         if output_flow:
             # Generate random affine matrix
-            B = batch_inputs.size(0)
-            input_shape = batch_inputs.shape
+            # B = batch_inputs.size(0)
+            # input_shape = batch_inputs.shape
             
-            rotation = (torch.rand(B, 1, 1) - 0.5) * torch.pi / 12
-            rotation = torch.expand_copy(rotation, (B, 2, 2))
+            # rotation = (torch.rand(B, 1, 1) - 0.5) * torch.pi / 12
+            # rotation = torch.expand_copy(rotation, (B, 2, 2))
 
-            rotation[:, 0, 0] = torch.cos(rotation[:, 0, 0])
-            rotation[:, 1, 1] = torch.cos(rotation[:, 1, 1])
-            rotation[:, 0, 1] = torch.sin(-rotation[:, 0, 1])
-            rotation[:, 1, 0] = torch.sin(rotation[:, 1, 0])
+            # rotation[:, 0, 0] = torch.cos(rotation[:, 0, 0])
+            # rotation[:, 1, 1] = torch.cos(rotation[:, 1, 1])
+            # rotation[:, 0, 1] = torch.sin(-rotation[:, 0, 1])
+            # rotation[:, 1, 0] = torch.sin(rotation[:, 1, 0])
 
-            transpose = torch.clamp(torch.normal(mean=0, std=1, size=(B, 2, 1)) * 0.16, -0.2, 0.2)
-            theta = torch.concat([rotation, transpose], dim=2) # B, 2, 3
-            assert theta.shape == (B, 2, 3)
+            # transpose = torch.clamp(torch.normal(mean=0, std=1, size=(B, 2, 1)) * 0.16, -0.2, 0.2)
+            # theta = torch.concat([rotation, transpose], dim=2) # B, 2, 3
+            # assert theta.shape == (B, 2, 3)
 
-            grid = F.affine_grid(theta, input_shape, align_corners=True)\
-                .to(dtype=batch_inputs.dtype, device=batch_inputs.device, non_blocking=True)
+            # grid = F.affine_grid(theta, input_shape, align_corners=True)\
+            #     .to(dtype=batch_inputs.dtype, device=batch_inputs.device, non_blocking=True)
             
-            # from mmdet.visualization.local_visualizer import DetLocalVisualizer
-            # dv = DetLocalVisualizer()
-            image_before = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
-            # image2 = inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
-            # dv.add_datasample('image', image, data_samples[0], draw_gt=True, show=True)
-            # dv.add_datasample('image2', image2, data_samples[0], draw_gt=True, show=True)
-            moving_batch_inputs = batch_inputs.detach()
-            batch_inputs =  F.grid_sample(moving_batch_inputs, grid, align_corners=True, padding_mode="border")
-            image_after = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
-            
+            # # from mmdet.visualization.local_visualizer import DetLocalVisualizer
+            # # dv = DetLocalVisualizer()
+            # image_before = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            # # image2 = inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            # # dv.add_datasample('image', image, data_samples[0], draw_gt=True, show=True)
+            # # dv.add_datasample('image2', image2, data_samples[0], draw_gt=True, show=True)
+            # moving_batch_inputs = batch_inputs.detach()
+            # batch_inputs =  F.grid_sample(moving_batch_inputs, grid, align_corners=True, padding_mode="border")
+            # image_after = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            trans = v2.RandomPerspective(distortion_scale=0.024, fill=127)
+            batch_inputs = trans(batch_inputs)
+
+
         ori_size = [1024, 1024]
         downsample_inputs = F.interpolate(batch_inputs, [256, 256])
         downsample_moving_batch_inputs = F.interpolate(batch_inputs2, [256, 256])

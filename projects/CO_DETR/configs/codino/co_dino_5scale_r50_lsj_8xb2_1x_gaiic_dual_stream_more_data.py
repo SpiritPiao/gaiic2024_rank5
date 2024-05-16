@@ -24,6 +24,7 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
+# image_size = (1280, 1280)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -303,10 +304,12 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
-    dict(type='BBox_Jitter'),
+    # dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
+    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
+    # dict(type='BBox_Jitter'),
 
-   # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
+    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
 
     dict(type='Image2Broadcaster',
@@ -323,6 +326,7 @@ load_pipeline = [
                     recompute_bbox=True,
                     allow_negative_crop=True),
                 dict(type='RandomFlip', prob=0.5),
+                dict(type='RandomFlip', prob=0.5, direction='vertical'),
         ]
     ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
@@ -370,7 +374,9 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
+    # dict(type='CLAHE', prob = 1),
+
+
 
     dict(type='Branch',
          transforms=[
@@ -465,28 +471,80 @@ log_processor = dict(by_epoch=True)
 # USER SHOULD NOT CHANGE ITS VALUES.
 # base_batch_size = (8 GPUs) x (2 samples per GPU)
 # auto_scale_lr = dict(base_batch_size=16, enabled = True)
-
 tta_model = dict(
     type='DetTTAModel',
-    tta_cfg=dict(nms=dict(
-                   type='nms',
-                   iou_threshold=0.5),
-                   max_per_img=100))
+    tta_cfg=dict(nms=dict(type='nms', iou_threshold=0.65), max_per_img=300))
+dict(
+        type='Branch',
+        transforms=[
+            dict(type='Pad', size=(1024, 1024), pad_val=dict(img=(114, 114, 114))),
+        ]
+    ),
 
+
+img_scales = [(640, 640), (320, 320), (960, 960)]
+img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
+img_scales = [(1024, 1024)]
 tta_pipeline = [
-    dict(type='LoadImageFromFile',
-        backend_args=None),
+    dict(type='LoadImageFromFile', backend_args=None),
+    dict(type='LoadImageFromFile2'),
     dict(
         type='TestTimeAug',
-        transforms=[[
-            dict(type='Resize', scale=(1333, 800), keep_ratio=True)
-        ], [ # It uses 2 flipping transformations (flipping and not flipping).
-            dict(type='RandomFlip', prob=1.),
-            dict(type='RandomFlip', prob=0.)
-        ], [
-            dict(
-               type='PackDetInputs',
-               meta_keys=('img_id', 'img_path', 'ori_shape',
-                       'img_shape', 'scale_factor', 'flip',
-                       'flip_direction'))
-       ]])]
+        transforms=[
+            [
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='Resize', scale=s, keep_ratio=True)]
+                )
+                for s in img_scales
+            ],
+            [
+                # ``RandomFlip`` must be placed before ``Pad``, otherwise
+                # bounding box coordinates after flipping cannot be
+                # recovered correctly.
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='RandomFlip', prob=1.)]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='RandomFlip', prob=1., direction='vertical')]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='RandomFlip', prob=0.)]
+                ),
+                # dict(
+                #     type='Branch', 
+                #     transforms = [dict(type='Albu', transforms= [dict(type='RandomRotate90', p=1.)])]
+
+                #     ),
+                # dict(
+                #     type='Branch', 
+                #     transforms = [dict(type='Albu', transforms= [dict(type='RandomRotate90', p=1.)])]
+
+                #     ),
+                # dict(type='RandomFlip', prob=1.),
+                # dict(type='RandomFlip', prob=0.)
+            ],
+            [
+                dict(
+                    type='Branch',
+                    transforms=[
+                        dict(
+                            type='Pad',
+                            size=image_size,
+                            pad_val=dict(img=(114, 114, 114))
+                        )
+                    ]
+                ),
+            ],
+            [dict(type='LoadAnnotations', with_bbox=True)],
+            [
+                dict(
+                    type='DoublePackDetInputs',
+                    meta_keys=('img_id', 'img_path', 'img_path2','ori_shape', 'img_shape', 'ori_shape2', 'img_shape2',
+                               'scale_factor', 'flip', 'flip_direction'))
+            ]
+        ])
+]

@@ -84,16 +84,16 @@ def calculate_confusion_matrix(dataset,
             Default: 0.5.
     """
     num_classes = len(dataset.metainfo['classes'])
-    confusion_matrix = np.zeros(shape=[num_classes + 1, num_classes + 1])
+    confusion_matrix = np.zeros(shape=[num_classes + 1, num_classes + 1], dtype=np.int32)
     assert len(dataset) == len(results)
     prog_bar = ProgressBar(len(results))
     acc_per_image = []
     for idx, per_img_res in enumerate(results):
         res_bboxes = per_img_res['pred_instances']
         gts = dataset.get_data_info(idx)['instances']
-        res = analyze_per_img_dets(confusion_matrix, gts, res_bboxes, score_thr,
+        res, boxes = analyze_per_img_dets(confusion_matrix, gts, res_bboxes, score_thr,
                              tp_iou_thr, nms_iou_thr)
-        acc_per_image.append([res, Path(dataset.get_data_info(idx)["img_path"]).name])
+        acc_per_image.append([res, boxes, Path(dataset.get_data_info(idx)["img_path"]).name])
         prog_bar.update()
     return confusion_matrix, acc_per_image
 
@@ -122,6 +122,7 @@ def analyze_per_img_dets(confusion_matrix,
             change the nms IoU threshold. Default: None.
     """
     true_positives = np.zeros(len(gts))
+    true_positives_scores = np.zeros(len(gts))
     gt_bboxes = []
     gt_labels = []
     for gt in gts:
@@ -135,6 +136,9 @@ def analyze_per_img_dets(confusion_matrix,
 
     tp = 0
     wrong = 0
+    TP_SCORES = []
+    F_SCORES = []
+    boxes = []
     for det_label in unique_label:
         mask = (result['labels'] == det_label)
         det_bboxes = result['bboxes'][mask].numpy()
@@ -151,20 +155,29 @@ def analyze_per_img_dets(confusion_matrix,
                     if ious[i, j] >= tp_iou_thr:
                         det_match += 1
                         if gt_label == det_label:
-                            true_positives[j] += 1  # TP
+                            true_positives[j] += 1  # FG TP
                             tp += 1
-                        else:
+                            TP_SCORES.append(score)
+                        else: # FG FN
                             wrong += 1
+                            F_SCORES.append(score)
+                        boxes.append((det_bboxes[i].tolist(), gt_label, det_label))
                         confusion_matrix[gt_label, det_label] += 1
                 if det_match == 0:  # BG FP
                     confusion_matrix[-1, det_label] += 1
                     wrong += 1
-    for num_tp, gt_label in zip(true_positives, gt_labels):
-        if num_tp == 0:  # FN
+                    F_SCORES.append(score)
+                    boxes.append((det_bboxes[i].tolist(), -1, det_label))
+            
+            
+    for num_tp, gt_bbox, gt_label in zip(true_positives, gt_bboxes, gt_labels):
+        if num_tp == 0:  # BG FN
             confusion_matrix[gt_label, -1] += 1
             wrong += 1
+            F_SCORES.append(0)
+            boxes.append((gt_bbox, gt_label, -1))
 
-    return tp / (tp + wrong + 1e-5)
+    return tp / (tp + wrong + 1e-5), boxes
 
 
 def plot_confusion_matrix(cm, classes, save_dir=None, show=True, title='Confusion matrix', cmap=plt.cm.Blues, color_theme=None, normalize=False):
@@ -172,14 +185,14 @@ def plot_confusion_matrix(cm, classes, save_dir=None, show=True, title='Confusio
     if normalize:
         cm = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
     else:
-        cm = cm.astype("int16")
+        cm = cm.astype("float")
     plt.figure(figsize = (10, 8))
     
     # plt.imshow(cm, interpolation='nearest', cmap=cmap)
     plt.title(title)
     df_cm = pd.DataFrame(cm, classes, classes)
-    sn.heatmap(df_cm, annot=True, fmt = '.2f' if normalize else 'd', cmap=cmap)
-
+    sn.heatmap(df_cm, annot=True, fmt = '.2f' if normalize else '.0f', cmap=cmap)
+    print(cm)
     plt.ylabel('True label')
     plt.xlabel('Predicted label')
 
@@ -224,6 +237,15 @@ def main():
         show=args.show,
         color_theme=args.color_theme,
         normalize=args.norm)
+    
+    boxes = [[j, k] for i, j, k in acc_per_image]
+    acc_per_image = [[i, k] for i, j, k in acc_per_image]
+    
+    import pickle
+    boxes_save_path = os.path.join(args.save_dir, "image_boxes.pk")
+    if not os.path.exists(boxes_save_path):
+        with open(boxes_save_path, "wb") as f:
+            pickle.dump(boxes, f)
 
     df = pd.DataFrame(acc_per_image, columns=["acc", "filename"])
     df = df.sort_values(by="acc")

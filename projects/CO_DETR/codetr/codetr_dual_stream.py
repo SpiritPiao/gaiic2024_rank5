@@ -49,6 +49,7 @@ class CoDETR_Dual(BaseDetector):
         
         if neck is not None:
             self.neck = MODELS.build(neck)
+
         # Module index for evaluation
         self.eval_index = eval_index
         head_idx = 0
@@ -110,7 +111,8 @@ class CoDETR_Dual(BaseDetector):
         ori_backbone_params = []
         ori_backbone_key = []
         for k, v in state_dict.items():
-            if k.startswith("backbone")  and "backbone1" not in k and "backbone2" not in k:
+            if (k.startswith("backbone")  and "backbone1" not in k and "backbone2" not in k):
+            # or (k.startswith("neck")  and "neck1" not in k and "neck2" not in k):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
@@ -120,6 +122,8 @@ class CoDETR_Dual(BaseDetector):
             for k, v in zip(ori_backbone_key, ori_backbone_params):
                 state_dict[k.replace("backbone", "backbone1")] = v
                 state_dict[k.replace("backbone", "backbone2")] = copy.deepcopy(v)
+                # state_dict[k.replace("neck", "neck1")] = v
+                # state_dict[k.replace("neck", "neck2")] = copy.deepcopy(v)
                 del state_dict[k]
             # Force set the strict to "False"
             strict = False
@@ -133,6 +137,8 @@ class CoDETR_Dual(BaseDetector):
                     inputs2: torch.Tensor,
                     data_samples: OptSampleList = None,
                     mode: str = 'tensor'):
+
+            
             """The unified entry for a forward process in both training and test.
 
             The method should accept three modes: "tensor", "predict" and "loss":
@@ -227,15 +233,13 @@ class CoDETR_Dual(BaseDetector):
         
         z = [i + j for i, j in zip(x, y)]
 
-        ## Concat #
-        # x[0], y[0] = self.eaef1([x[0], y[0]])
-        # x[1], y[1] = self.eaef2([x[1], y[1]])
-        # x[2], y[2] = self.eaef3([x[2], y[2]])
-        # x[3], y[3] = self.eaef4([x[3], y[3]])
 
-        
         if self.with_neck:
             z = self.neck(z)
+            # x = list(self.neck1(x))
+            # y = list(self.neck2(y))
+        # z = tuple([i + j for i, j in zip(x, y)])
+  
         return z
 
     def _forward(self,
@@ -256,6 +260,31 @@ class CoDETR_Dual(BaseDetector):
                 img_metas = data_samples.metainfo
                 input_img_h, input_img_w = batch_input_shape
                 img_metas['img_shape'] = [input_img_h, input_img_w]
+        input_pianyi = False
+        if input_pianyi:
+            import torch.nn.functional as F
+
+            B = batch_inputs.size(0)
+            input_shape = batch_inputs.shape
+            rotation = (torch.rand(B, 1, 1) - 0.5) * torch.pi / 12
+            rotation = torch.expand_copy(rotation, (B, 2, 2))
+            rotation[:, 0, 0] = torch.cos(rotation[:, 0, 0])
+            rotation[:, 1, 1] = torch.cos(rotation[:, 1, 1])
+            rotation[:, 0, 1] = torch.sin(-rotation[:, 0, 1])
+            rotation[:, 1, 0] = torch.sin(rotation[:, 1, 0])
+            transpose = torch.clamp(torch.normal(mean=0, std=1, size=(B, 2, 1)) * 0.16, -0.2, 0.2)
+            theta = torch.concat([rotation, transpose], dim=2) # B, 2, 3
+            assert theta.shape == (B, 2, 3)
+            grid = F.affine_grid(theta, input_shape, align_corners=True)\
+                .to(dtype=batch_inputs.dtype, device=batch_inputs.device, non_blocking=True)
+            # from mmdet.visualization.local_visualizer import DetLocalVisualizer
+            # dv = DetLocalVisualizer()
+            # image_before = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            # image2 = inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
+            # dv.add_datasample('image', image, data_samples[0], draw_gt=True, show=True)
+            # dv.add_datasample('image2', image2, data_samples[0], draw_gt=True, show=True)
+            moving_batch_inputs = batch_inputs.detach()
+            batch_inputs =  F.grid_sample(moving_batch_inputs, grid, align_corners=True)
 
         x = self.extract_feat(batch_inputs, batch_inputs2)
 

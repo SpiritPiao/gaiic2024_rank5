@@ -13,9 +13,11 @@ from mmdet.registry import MODELS
 from mmdet.structures import OptSampleList, SampleList
 from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 
+## Registration libs
 from mmdet.models.layers.registration import SpatialTransformer
 from projects.CO_DETR.codetr.registration_net import Unet
-
+import torch.nn.functional as F
+from torch.distributions.normal import Normal
 
 @MODELS.register_module()
 class CoDETR_Dual_Reg(BaseDetector):
@@ -102,14 +104,20 @@ class CoDETR_Dual_Reg(BaseDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        self.reg_net = Unet(neck['in_channels'][0] * 2)
-        self.spt = SpatialTransformer(size=(1024 // 4, 1024 // 4))
+        ################## Align Features ##################
+        assert neck['in_channels'] == 4, "Only accept input neck channels eq to 4."
+        self.reg_net_256 = Unet(len(neck['in_channels']) * 2)
+
+        self.spt_256 = SpatialTransformer(size=(1024 // 4, 1024 // 4))
+        self.spt_128 = SpatialTransformer(size=(1024 // 8, 1024 // 8))
+        self.spt_64 = SpatialTransformer(size=(1024 // 16, 1024 // 16))
+        self.spt_32 = SpatialTransformer(size=(1024 // 32, 1024 // 32))
+        
         # configure unet to flow field layer
         Conv = getattr(nn, 'Conv%dd' % 2)
         self.flow = Conv(2, 2, kernel_size=3, padding=1)
 
-        from torch.distributions.normal import Normal
-
+        
         # init flow layer with small weights and bias
         self.flow.weight = nn.Parameter(Normal(0, 1e-5).sample(self.flow.weight.shape))
         self.flow.bias = nn.Parameter(torch.zeros(self.flow.bias.shape))
@@ -218,6 +226,47 @@ class CoDETR_Dual_Reg(BaseDetector):
                 or (hasattr(self, 'bbox_head') and self.bbox_head is not None
                     and len(self.bbox_head) > 0))
 
+
+    def feat_align(self, x, y):
+        shape = x[0].shape[2:]
+
+        fuse_x = [] 
+        fuse_y = [] 
+        z = [] 
+        for idx, i in enumerate(x):
+            scale = 2 ** idx
+            j = i
+            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, align_corners=True, mode="bilinear")
+            fuse_x.append(j)
+        
+        for idx, i in enumerate(y):
+            scale = 2 ** idx
+            j = i
+            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, align_corners=True, mode="bilinear")
+            fuse_y.append(j)
+        
+        fuse_x = torch.concat(fuse_x, dim=1)
+        fuse_y = torch.concat(fuse_y, dim=1)
+        
+        # Normalize
+        fuse_x = (fuse_x - fuse_x.mean().detach()) / (fuse_x.std().detach() + 1e-3)
+        fuse_y = (fuse_y - fuse_y.mean().detach()) / (fuse_y.std().detach() + 1e-3)
+        
+        flow = self.flow(self.reg_net_256(fuse_x, fuse_y))
+        flow = torch.clamp(flow, -8 * 4, 8 * 4)
+
+        ## Concat ##
+        for idx, (i, j, spt) in enumerate(zip(x, y, [self.spt_256, self.spt_128, self.spt_64, self.spt_32])):
+            ## Align Features ##
+            hr1_f = i
+            hr2_f = j
+            flow = F.interpolate(flow, size=shape, align_corners=True, mode="bilinear")
+            z.append(spt.forward(hr1_f.detach(), flow) + hr2_f)
+            shape = [shape[0] // 2, shape[1] // 2]
+            flow = flow * .5
+            
+        return z
+
     def extract_feat(self, batch_inputs: Tensor, batch_inputs2: Tensor) -> Tuple[Tensor]:
         """Extract features.
 
@@ -230,23 +279,9 @@ class CoDETR_Dual_Reg(BaseDetector):
         """
 
         x = self.backbone1(batch_inputs)
-        y = self.backbone2(batch_inputs2)
-
-        x = list(x)
-        ## Align HR Features ##
-        hr1_f = x[0]
-        hr2_f = y[0]
-
-        flow = self.flow(self.reg_net(hr1_f.detach(), hr2_f.detach()))
-        flow = torch.clamp(flow, -32, 32)
-        # print(flow.shape, flow.max(), flow.min())
-        x[0] = self.spt.forward(hr1_f.detach(), flow)
-
-        ## Concat ##
-        z = [i + j for i, j in zip(x, y)]
+        y = self.backbone1(batch_inputs2)
         
-        # for i in z:
-        #     print(i.shape)
+        z = self.feat_align(x, y)
 
         if self.with_neck:
             z = self.neck(z)

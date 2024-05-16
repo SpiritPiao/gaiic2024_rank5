@@ -23,7 +23,7 @@ from mmdet.registry import TRANSFORMS
 from mmdet.structures.bbox import HorizontalBoxes, autocast_box_type
 from mmdet.structures.mask import BitmapMasks, PolygonMasks
 from mmdet.utils import log_img_scale
-
+import albumentations
 try:
     from imagecorruptions import corrupt
 except ImportError:

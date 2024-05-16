@@ -17,7 +17,7 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
-data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
+data_root = '/root/workspace/data/GAIIC2024/'
 
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa

@@ -23,18 +23,19 @@ from mmdet.registry import TRANSFORMS
 from mmdet.structures.bbox import HorizontalBoxes, autocast_box_type
 from mmdet.structures.mask import BitmapMasks, PolygonMasks
 from mmdet.utils import log_img_scale
+import albumentations as A
 
 try:
     from imagecorruptions import corrupt
 except ImportError:
     corrupt = None
 
-try:
-    import albumentations
-    from albumentations import Compose
-except ImportError:
-    albumentations = None
-    Compose = None
+# try:
+#     import albumentations
+#     from albumentations import Compose
+# except ImportError:
+#     albumentations = None
+#     Compose = None
 
 Number = Union[int, float]
 
@@ -189,7 +190,7 @@ class CopyPaste_Possion(BaseTransform):
         # if len(labels4.tensor.numpy()) <= 20:
         #     mixup_number = 2 * mixup_number
         if use_cache:
-            mixup_number = random.randint(2, 6)
+            mixup_number = random.randint(2, 4)
         else:
             max_val = min(len(cropp_img) // 2, mixup_number)
             mixup_number = random.randint(0, max_val)
@@ -377,6 +378,61 @@ class Pre_Pianyi(BaseTransform):
         repr_str += f'prob={self.prob})'
         return repr_str
 
+    
+@TRANSFORMS.register_module()
+class Get_three_mixup(BaseTransform):
+
+
+    def __init__(self,
+                 canvas_size: Tuple[int, int] = (640, 640),
+                 p: float = 1.0,
+                 img_scale: Tuple[int, int] = (640, 640),
+                 center_ratio_range: Tuple[float, float] = (0.5, 1.5),
+                 bbox_clip_border: bool = True,
+                 pad_val: float = 114.0,
+                 prob: float = 1.0) -> None:
+        assert isinstance(img_scale, tuple)
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+
+        log_img_scale(img_scale, skip_square=True, shape_order='wh')
+        self.img_scale = img_scale
+        self.center_ratio_range = center_ratio_range
+        self.bbox_clip_border = bbox_clip_border
+        self.pad_val = pad_val
+        self.prob = prob
+        self.number = 0
+        self.canvas_size = canvas_size
+        self.p = p
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        # print(1)
+        img1 = results['img'] 
+        img2 = results['img2'] 
+
+
+        r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
+        mixup_img = (img2 * r + img1 * (1 - r)).astype(np.uint8)
+        results['img3'] = mixup_img
+        results['img_shape3'] = mixup_img.shape[:2]
+        results['ori_shape3'] = mixup_img.shape[:2]
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+    
 @TRANSFORMS.register_module()
 class BBox_Jitter(BaseTransform):
 
@@ -436,6 +492,155 @@ class BBox_Jitter(BaseTransform):
         repr_str += f'prob={self.prob})'
         return repr_str
 
+    
+# @TRANSFORMS.register_module()
+# class BBox_Jitter(BaseTransform):
+
+
+#     def __init__(self,
+#                 prob: float = 0.5,
+#                 max_shift_px: int = 4,
+#                 filter_thr_px: int = 1,
+#                 unchange_thr_px: int = 200) -> None:
+#         assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+#                                  f'got {prob}.'
+
+#         assert max_shift_px >= 0
+#         self.prob = prob
+#         self.max_shift_px = max_shift_px
+#         self.filter_thr_px = int(filter_thr_px)
+#         self.unchange_thr_px = int(unchange_thr_px)
+#     @cache_randomness
+#     def get_indexes(self, cache: list) -> list:
+#         indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+#         return indexes
+
+#     @autocast_box_type()
+#     def transform(self, results: dict) -> dict:
+
+
+#         gt_bboxes = results['gt_bboxes']
+#         img_shape = results['img'].shape[:2]
+#         for i in range(len(gt_bboxes)):
+#             gt_bbox = gt_bboxes[i].clone()
+
+#             if (gt_bbox.cxcywh[0, 2:]).min() > self.unchange_thr_px and random.random() < self.prob:
+#                 random_shift_x = random.randint(-self.max_shift_px,
+#                                                 self.max_shift_px)
+#                 random_shift_y = random.randint(-self.max_shift_px,
+#                                                 self.max_shift_px)
+#                 gt_bbox.translate_([random_shift_x, random_shift_y])
+
+#                 # clip border
+#                 gt_bbox.clip_(img_shape)
+
+#                 if gt_bbox.cxcywh[0, 2:].min() > self.filter_thr_px:
+#                     gt_bboxes[i] = gt_bbox
+
+    
+            
+#         results['gt_bboxes'] = gt_bboxes
+
+#         return results
+
+
+#     def __repr__(self):
+#         repr_str = self.__class__.__name__
+#         repr_str += f'(img_scale={self.img_scale}, '
+#         repr_str += f'center_ratio_range={self.center_ratio_range}, '
+#         repr_str += f'pad_val={self.pad_val}, '
+#         repr_str += f'prob={self.prob})'
+#         return repr_str
+
+@TRANSFORMS.register_module()
+class Albumentation(BaseTransform):
+
+
+    def __init__(self,
+                prob: float = 1) -> None:
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+ 
+        self.prob = prob
+
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        img1 = results['img']
+        img2 = results['img2']
+
+        T = [
+                A.Blur(p=0.02),
+                A.MedianBlur(p=0.02),
+                # A.ToGray(p=0.01),
+                # A.CLAHE(p=0.02),
+                A.RandomBrightnessContrast(p=0.0),
+                A.RandomGamma(p=0.0),
+                A.ImageCompression(quality_lower=75, p=0.0)]  # transforms
+        albu_transform = A.Compose(T)
+        if random.random() < self.prob:
+            new1 = albu_transform(image=img1)
+            new2 = albu_transform(image=img2)
+            img1 = new1['image']
+            img2 = new2['image']
+
+    
+            
+        results['img'] = img1
+        results['img2'] = img2
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+@TRANSFORMS.register_module()
+class CLAHE(BaseTransform):
+
+
+    def __init__(self,
+                prob: float = 1) -> None:
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+ 
+        self.prob = prob
+
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        img2 = results['img2']
+        channels = cv2.split(img2)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+        clahe_channels = [clahe.apply(channel) for channel in channels]
+        clahe_image = cv2.merge(clahe_channels)
+    
+            
+        # results['img'] = img1
+        results['img2'] = clahe_image
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
 
 @TRANSFORMS.register_module()
 class Pre_mixup(BaseTransform):

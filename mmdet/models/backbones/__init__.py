@@ -18,6 +18,8 @@ from .resnext import ResNeXt
 from .ssd_vgg import SSDVGG
 from .swin import SwinTransformer
 from .dual_swin import Dual_SwinTransformer
+from .dual_swin_reg import Dual_SwinTransformer_Reg
+from .dual_swin_c2former import Dual_SwinTransformer_C2Former
 from .trident_resnet import TridentResNet
 
 __all__ = [
@@ -25,5 +27,6 @@ __all__ = [
     'MobileNetV2', 'Res2Net', 'HourglassNet', 'DetectoRS_ResNet',
     'DetectoRS_ResNeXt', 'Darknet', 'ResNeSt', 'TridentResNet', 'CSPDarknet',
     'SwinTransformer', 'PyramidVisionTransformer',
-    'PyramidVisionTransformerV2', 'EfficientNet', 'CSPNeXt','Dual_ResNet','Dual_SwinTransformer'
+    'PyramidVisionTransformerV2', 'EfficientNet', 'CSPNeXt','Dual_ResNet','Dual_SwinTransformer','Dual_SwinTransformer_Reg',
+    'Dual_SwinTransformer_C2Former'
 ]
