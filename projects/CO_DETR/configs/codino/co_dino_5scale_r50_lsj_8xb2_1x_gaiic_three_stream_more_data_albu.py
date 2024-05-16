@@ -315,18 +315,18 @@ load_pipeline = [
     # dict(type='LoadImageFromFile3'), # img2 img_path2
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
-    dict(
-        type='mmdet.Albu',
-        transforms=albu_train_transforms,
-        bbox_params=dict(
-            type='BboxParams',
-            format='pascal_voc',
-            label_fields=['gt_bboxes_labels', 'gt_ignore_flags']),
-        keymap={
-            'img': 'image',
-            'gt_bboxes': 'bboxes'
-        }
-    ),
+    # dict(
+    #     type='mmdet.Albu',
+    #     transforms=albu_train_transforms,
+    #     bbox_params=dict(
+    #         type='BboxParams',
+    #         format='pascal_voc',
+    #         label_fields=['gt_bboxes_labels', 'gt_ignore_flags']),
+    #     keymap={
+    #         'img': 'image',
+    #         'gt_bboxes': 'bboxes'
+    #     }
+    # ),
     dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1), 
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     dict(type='Get_three_mixup'),  #三分支 mixup
@@ -397,6 +397,7 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
+    dict(type='CLAHE', prob = 1),
     dict(type='Get_three_mixup'),  #三分支 mixup
     # dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
 
@@ -465,7 +466,7 @@ optim_wrapper = dict(
     type='OptimWrapper',
     optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
     clip_grad=dict(max_norm=0.1, norm_type=2),
-    paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
+    paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1), 'backbone3': dict(lr_mult=0.1)}))
 
 
 max_epochs = 12
