@@ -85,7 +85,7 @@ class Image2Broadcaster(BaseTransform):
         cp_data['img_shape'] = cp_data['img_shape2']
         cp_data['img_path'] = cp_data['img_path2']
         cp_data['ori_shape'] = cp_data['ori_shape2']
-        scatters = [data, cp_data]
+        scatters = [data, cp_data, cp_data]
         return scatters
 
     def _apply_transforms(self, inputs: list) -> list:
@@ -312,11 +312,19 @@ class Image3Broadcaster(BaseTransform):
             list[dict]: A list of input data.
         """
         cp_data = copy.deepcopy(data)
-        cp_data['img'] = cp_data['img3']
-        cp_data['img_shape'] = cp_data['img_shape3']
+        
+        cp_data['img'] = cp_data['img2']
+        cp_data['img_shape'] = cp_data['img_shape2']
         cp_data['img_path'] = cp_data['img_path2']
-        cp_data['ori_shape'] = cp_data['ori_shape3']
-        scatters = [data, cp_data]
+        cp_data['ori_shape'] = cp_data['ori_shape2']
+        
+        cp_data3 = copy.deepcopy(data)
+        cp_data3['img'] = cp_data3['img3']
+        cp_data3['img_shape'] = cp_data3['img_shape3']
+        cp_data3['img_path'] = cp_data3['img_path2']
+        cp_data3['ori_shape'] = cp_data3['ori_shape3']
+        # scatters = [data, cp_data]
+        scatters = [data, cp_data, cp_data3]
         return scatters
 
     def _apply_transforms(self, inputs: list) -> list:
@@ -328,7 +336,7 @@ class Image3Broadcaster(BaseTransform):
         Returns:
             list[dict]: The output of the wrapped pipeline.
         """
-        assert len(inputs) == 2
+        assert len(inputs) == 3
         ctx = cache_random_params
         with ctx(self.transforms):
             output_scatters = [self.transforms(_input) for _input in inputs]
@@ -346,12 +354,18 @@ class Image3Broadcaster(BaseTransform):
         """
         assert isinstance(output_scatters, list) and \
                isinstance(output_scatters[0], dict) and \
-               len(output_scatters) == 2
+               len(output_scatters) == 3
         outputs = output_scatters[0]
-        outputs['img3'] = output_scatters[1]['img']
-        outputs['img_path3'] = output_scatters[1]['img_path']
-        outputs['img_shape3'] = output_scatters[1]['img_shape']
-        outputs['ori_shape3'] = output_scatters[1]['ori_shape']
+        outputs['img2'] = output_scatters[1]['img']
+        outputs['img_path2'] = output_scatters[1]['img_path']
+        outputs['img_shape2'] = output_scatters[1]['img_shape']
+        outputs['ori_shape2'] = output_scatters[1]['ori_shape']
+        
+        outputs['img3'] = output_scatters[2]['img']
+        outputs['img_path3'] = output_scatters[2]['img_path']
+        outputs['img_shape3'] = output_scatters[2]['img_shape']
+        outputs['ori_shape3'] = output_scatters[2]['ori_shape']
+        
         return outputs
 
 
@@ -428,11 +442,18 @@ class Branch_three(BaseTransform):
         """
         
         cp_data = copy.deepcopy(data)
-        cp_data['img'] = cp_data['img3']
-        cp_data['img_shape'] = cp_data['img_shape3']
+        cp_data['img'] = cp_data['img2']
+        cp_data['img_shape'] = cp_data['img_shape2']
         cp_data['img_path'] = cp_data['img_path2']
-        cp_data['ori_shape'] = cp_data['ori_shape3']
-        scatters = [data, cp_data]
+        cp_data['ori_shape'] = cp_data['ori_shape2']
+        
+        cp_data3 = copy.deepcopy(data)
+        cp_data3['img'] = cp_data3['img3']
+        cp_data3['img_shape'] = cp_data3['img_shape3']
+        cp_data3['img_path'] = cp_data3['img_path2']
+        cp_data3['ori_shape'] = cp_data3['ori_shape3']
+        # scatters = [data, cp_data]
+        scatters = [data, cp_data, cp_data3]
         return scatters
 
     def _apply_transforms(self, inputs: list) -> list:
@@ -444,7 +465,7 @@ class Branch_three(BaseTransform):
         Returns:
             list[dict]: The output of the wrapped pipeline.
         """
-        assert len(inputs) == 2
+        assert len(inputs) == 3
         output_scatters = [self.transforms(_input) for _input in inputs]
         return output_scatters
 
@@ -460,11 +481,16 @@ class Branch_three(BaseTransform):
         """
         assert isinstance(output_scatters, list) and \
                isinstance(output_scatters[0], dict) and \
-               len(output_scatters) == 2
+               len(output_scatters) == 3
         outputs = output_scatters[0]
-        outputs['img3'] = output_scatters[1]['img']
-        outputs['img_path3'] = output_scatters[1]['img_path']
-        outputs['img_shape3'] = output_scatters[1]['img_shape']
-        outputs['ori_shape3'] = output_scatters[1]['ori_shape']
+        outputs['img2'] = output_scatters[1]['img']
+        outputs['img_path2'] = output_scatters[1]['img_path']
+        outputs['img_shape2'] = output_scatters[1]['img_shape']
+        outputs['ori_shape2'] = output_scatters[1]['ori_shape']
+        
+        outputs['img3'] = output_scatters[2]['img']
+        outputs['img_path3'] = output_scatters[2]['img_path']
+        outputs['img_shape3'] = output_scatters[2]['img_shape']
+        outputs['ori_shape3'] = output_scatters[2]['ori_shape']
 
         return outputs
