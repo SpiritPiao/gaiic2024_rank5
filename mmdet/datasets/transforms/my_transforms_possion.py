@@ -30,12 +30,12 @@ try:
 except ImportError:
     corrupt = None
 
-# try:
-#     import albumentations
-#     from albumentations import Compose
-# except ImportError:
-#     albumentations = None
-#     Compose = None
+try:
+    import albumentations
+    from albumentations import Compose
+except ImportError:
+    albumentations = None
+    Compose = None
 
 Number = Union[int, float]
 
@@ -573,20 +573,21 @@ class Albumentation(BaseTransform):
         img1 = results['img']
         img2 = results['img2']
 
+
         T = [
                 A.Blur(p=0.02),
                 A.MedianBlur(p=0.02),
-                # A.ToGray(p=0.01),
-                # A.CLAHE(p=0.02),
-                A.RandomBrightnessContrast(p=0.0),
-                A.RandomGamma(p=0.0),
-                A.ImageCompression(quality_lower=75, p=0.0)]  # transforms
-        albu_transform = A.Compose(T)
+                A.MotionBlur(p=0.02),
+                A.RandomBrightnessContrast(p=0.02),
+
+                ]  # transforms
+        albu_tr = albumentations.Compose(T)
+
         if random.random() < self.prob:
-            new1 = albu_transform(image=img1)
-            new2 = albu_transform(image=img2)
-            img1 = new1['image']
-            img2 = new2['image']
+            new1 = albu_tr(image=img1)['image']
+            new2 = albu_tr(image=img2)['image']
+            img1 = new1
+            img2 = new2
 
     
             

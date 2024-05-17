@@ -8,10 +8,10 @@ from torch import Tensor
 
 from mmdet.registry import MODELS
 from mmdet.utils import OptConfigType, OptMultiConfig
-
+from ..layers.
 
 @MODELS.register_module()
-class ChannelMapper(BaseModule):
+class PkiFPN(BaseModule):
     """Channel Mapper to reduce/increase channels of backbone features.
 
     This is used to reduce/increase channels of backbone features.

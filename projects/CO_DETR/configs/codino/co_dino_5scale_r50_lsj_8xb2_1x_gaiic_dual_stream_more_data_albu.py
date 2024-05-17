@@ -24,7 +24,7 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
-# image_size = (1280, 1280)
+image_size = (1280, 1280)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -298,33 +298,35 @@ model = dict(
         # soft-nms is also supported for rcnn testing
         # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
     ])
-albu_train_transforms = [
-    dict(type='Blur', p=0.02),
-    dict(type='MedianBlur', p=0.02),
-    dict(type='MotionBlur', p=0.02),
-    dict(type='RandomBrightness', p=0.02),
+# albu_train_transforms = [
+#     dict(type='Blur', p=0.02),
+#     dict(type='MedianBlur', p=0.02),
+#     dict(type='MotionBlur', p=0.02),
+#     dict(type='RandomBrightness', p=0.02),
 
-    # dict(type='ToGray', p=0.01),
-    # dict(type='CLAHE', p=0.01)
-]
+#     # dict(type='ToGray', p=0.01),
+#     # dict(type='CLAHE', p=0.01)
+# ]
 # LSJ + CopyPaste
 load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
-    dict(
-        type='mmdet.Albu',
-        transforms=albu_train_transforms,
-        bbox_params=dict(
-            type='BboxParams',
-            format='pascal_voc',
-            label_fields=['gt_bboxes_labels', 'gt_ignore_flags']),
-        keymap={
-            'img': 'image',
-            'gt_bboxes': 'bboxes'
-        }
-    ),
+    dict(type='Albumentation', prob = 1),
+
+    # dict(
+    #     type='mmdet.Albu',
+    #     transforms=albu_train_transforms,
+    #     bbox_params=dict(
+    #         type='BboxParams',
+    #         format='pascal_voc',
+    #         label_fields=['gt_bboxes_labels', 'gt_ignore_flags']),
+    #     keymap={
+    #         'img': 'image',
+    #         'gt_bboxes': 'bboxes'
+    #     }
+    # ),
     # dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
     dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
@@ -488,7 +490,7 @@ param_scheduler = [
 ]
 
 default_hooks = dict(
-    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=4))
+    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=7))
 log_processor = dict(by_epoch=True)
 
 # NOTE: `auto_scale_lr` is for automatically scaling LR,
