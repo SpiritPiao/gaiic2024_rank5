@@ -40,6 +40,8 @@ Number = Union[int, float]
 
 from .transforms import Mosaic
 
+import torch
+
 @TRANSFORMS.register_module()
 class CachedMosaic2Images(Mosaic):
     """Cached mosaic augmentation.
@@ -298,4 +300,212 @@ class CachedMosaic2Images(Mosaic):
         repr_str += f'max_cached_images={self.max_cached_images}, '
         repr_str += f'random_pop={self.random_pop})'
         return repr_str
+
+
+
+def radial_dark(image, centers, radius_list, angles):
+    mask = np.zeros(image.shape[:2], dtype=np.uint8)
+
+    for center, radius, angle in zip(centers, radius_list, angles):
+        cv2.ellipse(mask, (int(center[1]), int(center[0])), (int(radius[1]), int(radius[0])), angle, 0, 360, 255, -1)
+
+    dist_transform = cv2.distanceTransform(mask, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
+    normalized_dist = cv2.normalize(dist_transform, None, 0, 1.0, cv2.NORM_MINMAX)[:, :, None]
     
+    ratio = np.count_nonzero(normalized_dist > 0.5) / np.count_nonzero(normalized_dist >= 0.0)
+    result = image * (1 - normalized_dist)
+
+    return result.astype(np.uint8), ratio
+
+
+@TRANSFORMS.register_module()
+class RandDarkMask(BaseTransform):
+    
+    def __init__(self, prob=0.2,
+                    dark_channel_prob=0.5, 
+                    iteraiton=16,
+                    random_position=True,
+                    random_radius=True,
+                    drak_channel_size=15,
+                    radius_range=(36/1280, 256/1280), 
+                    seed=0):
+        self.iteraiton = iteraiton
+        self.random_position = random_position
+        self.random_radius = random_radius
+        self.radius_range = radius_range
+        self.prob = prob
+        self.drak_channel_prob = dark_channel_prob
+        self.drak_channel = DarkChannel(drak_channel_size)
+        self.R = random.Random(seed)
+    
+    def _drak(self, image_3_channel, random_positions, random_radius, random_angles):
+        # conver numpy HWC
+        is_torch_tensor = False
+        if isinstance(image_3_channel, torch.Tensor):
+            is_torch_tensor = True
+            image_3_channel = image_3_channel.cpu().numpy()
+        # image_3_channel = image_3_channel.transpose((1, 2, 0))
+        
+        denormalize_centers = []
+        denormalize_radius = []
+        for p, r in zip(random_positions, random_radius):
+            r0 = max(r[0] * image_3_channel.shape[0], 8)
+            r1 = max(r[1] * image_3_channel.shape[1], 8)
+            h = p[0] * image_3_channel.shape[0]
+            w = p[1] * image_3_channel.shape[1]
+            denormalize_centers.append([w, h])
+            denormalize_radius.append([r0, r1])
+        
+        image_3_channel, ratio = radial_dark(image_3_channel, centers=denormalize_centers, radius_list=denormalize_radius, angles=random_angles)
+        
+        # conver numpy CHW
+        # image_3_channel = image_3_channel.transpose((2, 0, 1))    
+        
+        if is_torch_tensor:
+            image_3_channel = torch.from_numpy(image_3_channel)
+        
+        return image_3_channel, ratio
+    
+    @cache_randomness
+    def random_parameters(self):
+        random_positions = [[0.5, 0.5]]
+        random_radius = [0.5]
+        
+        if self.random_position:
+            random_positions = [[self.R.rand(), self.R.rand()] for _ in range(self.iteraiton)]
+        if self.random_radius:
+            min_, max_ = self.radius_range
+            random_radius = [[self.R.rand() * (max_ - min_) + min_, self.R.rand() * (max_ - min_) + min_] for _ in range(self.iteraiton)]
+        
+        random_angles = [self.R.randint(0, 360) for _ in range(self.iteraiton)]
+        
+        return random_positions, random_radius, random_angles
+    
+    @cache_randomness
+    def _random_prob(self) -> float:
+        return self.R.uniform(0, 1)
+
+    @cache_randomness
+    def _random_prob_dark_channel(self) -> float:
+        return self.R.uniform(0, 1)
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        """Transform function to random shift images, bounding boxes.
+
+        Args:
+            results (dict): Result dict from loading pipeline.
+
+        Returns:
+            dict: Shift results.
+        """
+        random_positions, random_radius, random_angles = self.random_parameters()
+        if self._random_prob() < self.prob:
+            img_shape = results['img'].shape[:2]
+            img = results['img']
+            if self._random_prob_dark_channel() >= self.drak_channel_prob:
+                image_3_channel, ratio = self._drak(img, random_positions, random_radius, random_angles)
+            else:
+                res = self.drak_channel.run(img)
+                image_3_channel = (res - res.min()) / (res.max() - res.min()) * 255
+                
+            results['img'] = image_3_channel
+
+        return results
+
+
+# DarkChannel
+class DarkChannel:
+    def __init__(self, sz=15):
+        self._sz = sz
+
+    def _dark_channel(self, im):
+        b, g, r = cv2.split(im)
+        dc = cv2.min(cv2.min(r, g), b)
+        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (self._sz, self._sz))
+        dark = cv2.erode(dc, kernel)
+        return dark
+
+    def _atm_light(self, im, dark):
+        [h, w] = im.shape[:2]
+        imsz = h*w
+        numpx = int(max(math.floor(imsz/1000), 1))
+        darkvec = dark.reshape(imsz, 1)
+        imvec = im.reshape(imsz, 3)
+
+        indices = darkvec.argsort()
+        indices = indices[imsz-numpx::]
+
+        atmsum = np.zeros([1, 3])
+        for ind in range(1, numpx):
+            atmsum = atmsum + imvec[indices[ind]]
+
+        A = atmsum / numpx
+        return A
+
+    def _transmission_estimate(self, im, A):
+        omega = 0.95
+        im3 = np.empty(im.shape, im.dtype)
+
+        for ind in range(0, 3):
+            im3[:, :, ind] = im[:, :, ind]/A[0, ind]
+
+        transmission = 1 - omega*self._dark_channel(im3)
+        return transmission
+
+    def _guided_filter(self, im, p, r, eps):
+        mean_I = cv2.boxFilter(im, cv2.CV_64F, (r, r))
+        mean_p = cv2.boxFilter(p, cv2.CV_64F, (r, r))
+        mean_Ip = cv2.boxFilter(im*p, cv2.CV_64F, (r, r))
+        cov_Ip = mean_Ip - mean_I*mean_p
+
+        mean_II = cv2.boxFilter(im*im, cv2.CV_64F, (r, r))
+        var_I = mean_II - mean_I*mean_I
+
+        a = cov_Ip/(var_I + eps)
+        b = mean_p - a*mean_I
+
+        mean_a = cv2.boxFilter(a, cv2.CV_64F, (r, r))
+        mean_b = cv2.boxFilter(b, cv2.CV_64F, (r, r))
+
+        q = mean_a*im + mean_b
+        return q
+
+    def _transmission_refine(self, im, et):
+        gray = cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+        gray = np.float64(gray)/255
+        r = 60  # default 60
+        eps = 0.0001
+        t = self._guided_filter(gray, et, r, eps)
+
+        return t
+
+    def _recover(self, im, t, A, tx=0.1):
+        res = np.empty(im.shape, im.dtype)
+        t = cv2.max(t, tx)
+
+        for ind in range(0, 3):
+            res[:, :, ind] = (im[:, :, ind]-A[0, ind])/t + A[0, ind]
+
+        return res
+
+    def run(self, image):
+        rever_img = 255 - image
+        rever_img_bn = rever_img.astype('float64')/255
+        dark = self._dark_channel(rever_img_bn)
+        A = self._atm_light(rever_img_bn, dark)
+        te = self._transmission_estimate(rever_img_bn, A)
+        t = self._transmission_refine(image, te)
+        J = self._recover(rever_img_bn, t, A, 0.1)
+
+        rever_res_img = (1-J)*255
+        return rever_res_img
+    
+    
+if __name__ == "__main__":
+    import imageio
+    dc = DarkChannel()
+    res = dc.run(cv2.imread("/root/workspace/data/GAIIC2024/val/rgb/00003.jpg"))
+    # print(res.max(), res.min())
+    res = (res - res.min()) / (res.max() - res.min()) * 220
+    cv2.imwrite("debug3.png", res.astype(np.uint8))

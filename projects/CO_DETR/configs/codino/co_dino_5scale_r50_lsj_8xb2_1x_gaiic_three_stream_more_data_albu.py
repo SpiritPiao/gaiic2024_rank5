@@ -24,7 +24,7 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'co_dino_5scale_r50_lsj_8xb2_1x_coco-69a72d67.pth'  # noqa
 # load_from = 'work_dirs/co_dino_5scale_r50_lsj_8xb2_1x_gaiic_dual_stream_Visdrone/epoch_12.pth'
-image_size = (640, 640)
+image_size = (1280, 1280)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -385,13 +385,13 @@ train_dataloader = dict(
         dataset=dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
-                    data_root=data_root,
-        ann_file='val.json',
+        #             data_root=data_root,
+        # ann_file='val.json',
         
-        data_prefix=dict(img='val/rgb'),
-            # data_root=data_root,
-            # ann_file='merged_coco_new.json',
-            # data_prefix=dict(img='train_more/rgb'),
+        # data_prefix=dict(img='val/rgb'),
+            data_root=data_root,
+            ann_file='merged_coco_new.json',
+            data_prefix=dict(img='train_more/rgb'),
             pipeline=train_pipeline
         )
     )

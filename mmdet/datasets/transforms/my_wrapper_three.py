@@ -85,7 +85,7 @@ class Image2Broadcaster(BaseTransform):
         cp_data['img_shape'] = cp_data['img_shape2']
         cp_data['img_path'] = cp_data['img_path2']
         cp_data['ori_shape'] = cp_data['ori_shape2']
-        scatters = [data, cp_data]
+        scatters = [data, cp_data, cp_data]
         return scatters
 
     def _apply_transforms(self, inputs: list) -> list:

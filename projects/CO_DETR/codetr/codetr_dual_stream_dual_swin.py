@@ -44,7 +44,7 @@ class CoDETR_Dual_Swin(BaseDetector):
         assert eval_module in ['detr', 'one-stage', 'two-stage']
         self.eval_module = eval_module
 
-        self.backbone = MODELS.build(backbone)
+        self.backbone1 = MODELS.build(backbone)
         # self.backbone2 = MODELS.build(backbone)
         
         if neck is not None:
@@ -108,19 +108,29 @@ class CoDETR_Dual_Swin(BaseDetector):
         ori_backbone_key = []
         for k, v in state_dict.items():
             # if k.startswith("backbone.layer1")  and "layer1_t" not in k:
-            if ("backbone.patch_embed" in k and "backbone.patch_embed1" not in k) or  ("backbone.stages" in k and "backbone.stages1" not in k
-            or ("backbone.norm" in k and "backbone.tir_norm"  not in k) ):
+            if ("backbone2.patch_embed" in k and "backbone1.patch_embed1" not in k) or  ("backbone2.stages" in k and "backbone1.stages1" not in k
+            or ("backbone2.norm" in k and "backbone1.tir_norm"  not in k) ):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = False
+                copy_ori = True
+            # if ("backbone.patch_embed" in k and "backbone.patch_embed1" not in k) or  ("backbone.stages" in k and "backbone.stages1" not in k
+            # or ("backbone.norm" in k and "backbone.tir_norm"  not in k) ):
+            #     # Pretrained on original model
+            #     ori_backbone_params += [v]
+            #     ori_backbone_key += [k]
+            #     copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
+                state_dict[k.replace("backbone2.patch_embed", "backbone1.patch_embed1")] = copy.deepcopy(v)
+                state_dict[k.replace("backbone2.stages", "backbone1.stages1")] = copy.deepcopy(v)
+                state_dict[k.replace("backbone2.norm" , "backbone1.tir_norm")] = copy.deepcopy(v)
+            
                 # state_dict[k] = v
-                state_dict[k.replace("backbone.patch_embed", "backbone.patch_embed1")] = copy.deepcopy(v)
-                state_dict[k.replace("backbone.stages", "backbone.stages1")] = copy.deepcopy(v)
-                state_dict[k.replace("backbone.norm" , "backbone.tir_norm")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone.patch_embed1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.stages", "backbone.stages1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.norm" , "backbone.tir_norm")] = copy.deepcopy(v)
                 # del state_dict[k]
             # Force set the strict to "False"
             strict = True
@@ -222,7 +232,7 @@ class CoDETR_Dual_Swin(BaseDetector):
                 
         # x = list(self.backbone1(batch_inputs))
         # y = list(self.backbone2(batch_inputs2))
-        z = list(self.backbone([batch_inputs,batch_inputs2]))
+        z = list(self.backbone1([batch_inputs,batch_inputs2]))
         
         ## Concat #
         # x[0], y[0] = self.eaef1([x[0], y[0]])

@@ -112,7 +112,8 @@ class CoDETR_Three(BaseDetector):
         ori_backbone_params = []
         ori_backbone_key = []
         for k, v in state_dict.items():
-            if (k.startswith("backbone")  and "backbone1" not in k and "backbone2" not in k and "backbone3" not in k):
+            # if (k.startswith("backbone")  and "backbone1" not in k and "backbone2" not in k and "backbone3" not in k):
+            if (k.startswith("backbone2")  and "backbone3" not in k):
             # or (k.startswith("neck")  and "neck1" not in k and "neck2" not in k):
                 # Pretrained on original model
                 ori_backbone_params += [v]
@@ -121,12 +122,15 @@ class CoDETR_Three(BaseDetector):
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
-                state_dict[k.replace("backbone", "backbone1")] = v
-                state_dict[k.replace("backbone", "backbone2")] = copy.deepcopy(v)
-                state_dict[k.replace("backbone", "backbone3")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone", "backbone1")] = v
+                new_key = k.replace("backbone2", "backbone3")
+                state_dict[new_key] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone", "backbone1")] = v
+                # state_dict[k.replace("backbone", "backbone2")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone", "backbone3")] = copy.deepcopy(v)
                 # state_dict[k.replace("neck", "neck1")] = v
                 # state_dict[k.replace("neck", "neck2")] = copy.deepcopy(v)
-                del state_dict[k]
+                # del state_dict[k]
             # Force set the strict to "False"
             strict = False
         return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)

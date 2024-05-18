@@ -8,5 +8,5 @@
 # --resume work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data/epoch_10.pth 
 
 CUDA_VISIBLE_DEVICES=1,2,3,4,5,6,7 ./tools/dist_train.sh   \
-projects/CO_DETR/configs/codino/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu.py 7 \
-# --resume work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu/epoch_3.pth
+projects/CO_DETR/configs/codino/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_dual_swin_albu.py 7 \
+# --resume work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu/epoch_10.pth

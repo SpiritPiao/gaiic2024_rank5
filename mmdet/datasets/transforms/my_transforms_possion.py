@@ -575,10 +575,10 @@ class Albumentation(BaseTransform):
 
 
         T = [
-                A.Blur(p=0.02),
-                A.MedianBlur(p=0.02),
-                A.MotionBlur(p=0.02),
-                A.RandomBrightnessContrast(p=0.02),
+                A.Blur(p=0.05),
+                A.MedianBlur(p=0.05),
+                A.MotionBlur(p=0.05),
+                A.RandomBrightnessContrast(p=0.05),
 
                 ]  # transforms
         albu_tr = albumentations.Compose(T)

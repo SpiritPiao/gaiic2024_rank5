@@ -24,7 +24,7 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
-image_size = (1280, 1280)
+image_size = (1024, 1024)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -446,22 +446,22 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
-    )
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     ann_file=data_root + 'instances_test2017.json',
+#     outfile_prefix='./dual_test_result'
+#     )
 
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root=data_root,
+# test_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         data_root=data_root,
         
-        ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
+#         ann_file='instances_test2017.json',
+#         data_prefix=dict(img='test/rgb'),
+#         pipeline=test_pipeline))
 
 
 optim_wrapper = dict(

@@ -32,6 +32,7 @@ class CoDETR_Dual_Reg(BaseDetector):
             bbox_head=[None],  # one-stage
             train_cfg=[None, None],
             test_cfg=[None, None],
+            input_fix_shape = [1024, 1024],
             # Control whether to consider positive samples
             # from the auxiliary head as additional positive queries.
             with_pos_coord=True,
@@ -107,11 +108,11 @@ class CoDETR_Dual_Reg(BaseDetector):
         ################## Align Features ##################
         assert neck['in_channels'] == 4, "Only accept input neck channels eq to 4."
         self.reg_net_256 = Unet(len(neck['in_channels']) * 2)
-
-        self.spt_256 = SpatialTransformer(size=(1024 // 4, 1024 // 4))
-        self.spt_128 = SpatialTransformer(size=(1024 // 8, 1024 // 8))
-        self.spt_64 = SpatialTransformer(size=(1024 // 16, 1024 // 16))
-        self.spt_32 = SpatialTransformer(size=(1024 // 32, 1024 // 32))
+        
+        self.spt_256 = SpatialTransformer(size=(input_fix_shape[0] // 4, input_fix_shape[1] // 4))
+        self.spt_128 = SpatialTransformer(size=(input_fix_shape[0] // 8, input_fix_shape[1] // 8))
+        self.spt_64 = SpatialTransformer(size=(input_fix_shape[0] // 16, input_fix_shape[1] // 16))
+        self.spt_32 = SpatialTransformer(size=(input_fix_shape[0] // 32, input_fix_shape[1] // 32))
         
         # configure unet to flow field layer
         Conv = getattr(nn, 'Conv%dd' % 2)
