@@ -24,7 +24,7 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
-image_size = (1280, 1280)
+image_size = (1024, 1024)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -293,7 +293,7 @@ model = dict(
             nms_pre=1000,
             min_bbox_size=0,
             score_thr=0.0,
-            nms=dict(type='nms', iou_threshold=0.65),
+            nms=dict(type='nms', iou_threshold=0.6),
             max_per_img=100),
         # soft-nms is also supported for rcnn testing
         # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
@@ -328,7 +328,7 @@ load_pipeline = [
     #     }
     # ),
     # dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
-    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
     
@@ -389,8 +389,8 @@ train_dataloader = dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
             data_root=data_root,
-            ann_file='merged_coco_new.json',
-            data_prefix=dict(img='train_more/rgb'),
+            ann_file='merged_coco_new_vis_3cls.json',
+            data_prefix=dict(img='train_with_Vis_3cls/rgb'),
             pipeline=train_pipeline
         )
     )
@@ -452,7 +452,7 @@ test_evaluator = dict(
     format_only=True,
     ann_file=data_root + 'instances_test2017.json',
     outfile_prefix='./dual_test_result'
-    )
+)
 
 test_dataloader = dict(dataset=dict(
         type=dataset_type,
@@ -510,7 +510,7 @@ dict(
 
 img_scales = [(640, 640), (320, 320), (960, 960)]
 img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
-img_scales = [(1024, 1024), (1536, 1536), (1280, 1280)]
+img_scales = [(1024, 1024), (960, 960)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),

@@ -614,7 +614,7 @@ class Dual_SwinTransformer(BaseModule):
 
         self.stages = ModuleList()
         self.stages1 = ModuleList()
-        # self.eaef = ModuleList()
+        self.eaef = ModuleList()
         in_channels = embed_dims
         for i in range(num_layers):
             if i < num_layers - 1:
@@ -651,7 +651,7 @@ class Dual_SwinTransformer(BaseModule):
                 with_cp=with_cp,
                 init_cfg=None)
             self.stages.append(stage)
-            eaef = False
+            eaef = True
             if eaef:
                 eaef_layer = EAEF(in_channels)
                 self.eaef.append(eaef_layer)
@@ -817,7 +817,7 @@ class Dual_SwinTransformer(BaseModule):
                 out_tir = out_tir.view(-1, *out_hw_shape_tir,
                     self.num_features[i]).permute(0, 3, 1,
                                                 2).contiguous()
-                eaef = False
+                eaef = True
                 if eaef:
                     out_rgb, out_tir, out = self.eaef[i](out_rgb, out_tir)
                 else:  
@@ -894,9 +894,19 @@ class EAEF(nn.Module):
         # self.ccse = Channel_Attention(dim)
         self.sse_r = Spatial_Attention(dim)
         self.sse_t = Spatial_Attention(dim)
+
+        self.dcn1 = DCNv2(dim, dim, 3)
+        self.dcn2 = DCNv2(dim, dim, 3)
+
+        self.dcn3 = DCNv2(dim, dim, 3)
+        self.dcn4 = DCNv2(dim, dim, 3)
     def forward(self, RGB, T):
         ############################################################################
         # RGB,T = x[0], x[1]
+        RGB = self.dcn1(RGB)
+        T = self.dcn2(T)
+
+
         b, c, h, w = RGB.size()
         rgb_y = self.mlp_pool(RGB)
         t_y = self.mlp_pool(T)
@@ -927,6 +937,9 @@ class EAEF(nn.Module):
         attention_vector_l, attention_vector_r = attention_vector[:, 0:1, :, :], attention_vector[:, 1:2, :, :]
         New_RGB = New_RGB * attention_vector_l
         New_T = New_T * attention_vector_r
+
+        New_RGB = self.dcn3(New_RGB)
+        New_T = self.dcn4(New_T)
         New_fuse = New_T + New_RGB
         out = New_RGB, New_T, New_fuse
         ##########################################################################
@@ -960,3 +973,75 @@ class Spatial_Attention(nn.Module):
     def forward(self, x):
         x1 = self.conv1(x)
         return x1
+class DCNv2(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1,
+                 padding=1, groups=1, act=True, dilation=1, deformable_groups=1):
+        super(DCNv2, self).__init__()
+
+        self.in_channels = in_channels
+        self.out_channels = out_channels
+        self.kernel_size = (kernel_size, kernel_size)
+        self.stride = (stride, stride)
+        self.padding = (autopad(kernel_size, padding), autopad(kernel_size, padding))
+        self.dilation = (dilation, dilation)
+        self.groups = groups
+        self.deformable_groups = deformable_groups
+
+        self.weight = nn.Parameter(
+            torch.empty(out_channels, in_channels, *self.kernel_size)
+        )
+        self.bias = nn.Parameter(torch.empty(out_channels))
+
+        out_channels_offset_mask = (self.deformable_groups * 3 *
+                                    self.kernel_size[0] * self.kernel_size[1])
+        self.conv_offset_mask = nn.Conv2d(
+            self.in_channels,
+            out_channels_offset_mask,
+            kernel_size=self.kernel_size,
+            stride=self.stride,
+            padding=self.padding,
+            bias=True,
+        )
+        self.bn = nn.BatchNorm2d(out_channels)
+        self.act = nn.SiLU() if act is True else (act if isinstance(act, nn.Module) else nn.Identity())
+        self.reset_parameters()
+
+    def forward(self, x):
+
+        offset_mask = self.conv_offset_mask(x)
+        o1, o2, mask = torch.chunk(offset_mask, 3, dim=1)
+        offset = torch.cat((o1, o2), dim=1)
+        mask = torch.sigmoid(mask)
+        x = torch.ops.torchvision.deform_conv2d(
+            x,
+            self.weight,
+            offset,
+            mask,
+            self.bias,
+            self.stride[0], self.stride[1],
+            self.padding[0], self.padding[1],
+            self.dilation[0], self.dilation[1],
+            self.groups,
+            self.deformable_groups,
+            True
+        )
+        x = self.bn(x)
+        x = self.act(x)
+        return x
+
+    def reset_parameters(self):
+        import math
+        n = self.in_channels
+        for k in self.kernel_size:
+            n *= k
+        std = 1. / math.sqrt(n)
+        self.weight.data.uniform_(-std, std)
+        self.bias.data.zero_()
+        self.conv_offset_mask.weight.data.zero_()
+        self.conv_offset_mask.bias.data.zero_()
+
+def autopad(k, p=None):  # kernel, padding
+    # Pad to 'same'
+    if p is None:
+        p = k // 2 if isinstance(k, int) else [x // 2 for x in k]  # auto-pad
+    return p

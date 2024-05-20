@@ -380,6 +380,74 @@ class Pre_Pianyi(BaseTransform):
 
     
 @TRANSFORMS.register_module()
+class Pre_Pianyi_Bili(BaseTransform):
+
+
+    def __init__(self,
+                 canvas_size: Tuple[int, int] = (640, 640),
+                 p: float = 1.0,
+                 img_scale: Tuple[int, int] = (640, 640),
+                 center_ratio_range: Tuple[float, float] = (0.5, 1.5),
+                 bbox_clip_border: bool = True,
+                 pad_val: float = 114.0,
+                 prob: float = 1.0) -> None:
+        assert isinstance(img_scale, tuple)
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+
+        log_img_scale(img_scale, skip_square=True, shape_order='wh')
+        self.img_scale = img_scale
+        self.center_ratio_range = center_ratio_range
+        self.bbox_clip_border = bbox_clip_border
+        self.pad_val = pad_val
+        self.prob = prob
+        self.number = 0
+        self.canvas_size = canvas_size
+        self.p = p
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        # print(1)
+
+        if  random.random() < self.p:
+            
+            img1 = results['img']
+            image_size = img1.shape[:2]  
+            bili = 1.046875
+            self.canvas_size = [0,0]
+            self.canvas_size[0] = int(image_size[1]  * bili)
+            self.canvas_size[1] = int(image_size[0]  * bili)
+            canvas = np.full((self.canvas_size[1], self.canvas_size[0], 3),114.0,dtype=np.uint8)
+            max_left = self.canvas_size[0] - image_size[1]  
+            max_top = self.canvas_size[1] - image_size[0]  
+            random_left = random.randint(0, max_left)
+            random_top = random.randint(0, max_top)
+            canvas[random_top:random_top+image_size[0], random_left:random_left+image_size[1]] = img1
+            crop_size = (image_size[1]  , image_size[0])
+
+            x_min = random.randint(0, self.canvas_size[0] - crop_size[0])  
+            y_min = random.randint(0, self.canvas_size[1] - crop_size[1])  
+            cropped_image = canvas[y_min:y_min+crop_size[1], x_min:x_min+crop_size[0]]
+            # print(1)
+            
+            results['img'] = cropped_image
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+    
+@TRANSFORMS.register_module()
 class Get_three_mixup(BaseTransform):
 
 
@@ -575,10 +643,10 @@ class Albumentation(BaseTransform):
 
 
         T = [
-                A.Blur(p=0.05),
-                A.MedianBlur(p=0.05),
-                A.MotionBlur(p=0.05),
-                A.RandomBrightnessContrast(p=0.05),
+                A.Blur(p=0.03),
+                A.MedianBlur(p=0.03),
+                A.MotionBlur(p=0.03),
+                A.RandomBrightnessContrast(p=0.03),
 
                 ]  # transforms
         albu_tr = albumentations.Compose(T)

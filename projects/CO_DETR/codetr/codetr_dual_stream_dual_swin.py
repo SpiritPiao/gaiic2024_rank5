@@ -133,7 +133,7 @@ class CoDETR_Dual_Swin(BaseDetector):
                 # state_dict[k.replace("backbone.norm" , "backbone.tir_norm")] = copy.deepcopy(v)
                 # del state_dict[k]
             # Force set the strict to "False"
-            strict = True
+            strict = False
         return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
 

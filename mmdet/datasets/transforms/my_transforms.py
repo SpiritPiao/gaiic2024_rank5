@@ -311,9 +311,9 @@ def radial_dark(image, centers, radius_list, angles):
 
     dist_transform = cv2.distanceTransform(mask, cv2.DIST_L2, cv2.DIST_MASK_PRECISE)
     normalized_dist = cv2.normalize(dist_transform, None, 0, 1.0, cv2.NORM_MINMAX)[:, :, None]
-    
+    normalized_dist = normalized_dist ** 2 + 0.1
     ratio = np.count_nonzero(normalized_dist > 0.5) / np.count_nonzero(normalized_dist >= 0.0)
-    result = image * (1 - normalized_dist)
+    result = image * normalized_dist
 
     return result.astype(np.uint8), ratio
 
@@ -327,7 +327,7 @@ class RandDarkMask(BaseTransform):
                     random_position=True,
                     random_radius=True,
                     drak_channel_size=15,
-                    radius_range=(36/1280, 256/1280), 
+                    radius_range=(128/1024, 256/1024), 
                     seed=0):
         self.iteraiton = iteraiton
         self.random_position = random_position
@@ -336,9 +336,24 @@ class RandDarkMask(BaseTransform):
         self.prob = prob
         self.drak_channel_prob = dark_channel_prob
         self.drak_channel = DarkChannel(drak_channel_size)
-        self.R = random.Random(seed)
+        # import random
+        random.seed(seed)
+        self.R = random
     
-    def _drak(self, image_3_channel, random_positions, random_radius, random_angles):
+    def _is_night(self, image):
+        # hsv_image = cv2.cvtColor(image, cv2.COLOR_BGR2HSV)
+        # brightness = hsv_image[:,:,2]
+        # avg_brightness = np.mean(brightness)
+        threshold = 0.5
+        gray_image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        total_pixels = gray_image.size
+        black_pixels = np.sum(gray_image < 15)
+        black_percentage = black_pixels / total_pixels
+
+        return black_percentage >= threshold
+            
+
+    def _drak(self, image_3_channel, random_positions, random_radius, random_angles, dark_base=0.02):
         # conver numpy HWC
         is_torch_tensor = False
         if isinstance(image_3_channel, torch.Tensor):
@@ -350,14 +365,14 @@ class RandDarkMask(BaseTransform):
         denormalize_radius = []
         for p, r in zip(random_positions, random_radius):
             r0 = max(r[0] * image_3_channel.shape[0], 8)
-            r1 = max(r[1] * image_3_channel.shape[1], 8)
+            r1 = max(r[1] * image_3_channel.shape[0], 8)
             h = p[0] * image_3_channel.shape[0]
             w = p[1] * image_3_channel.shape[1]
             denormalize_centers.append([w, h])
             denormalize_radius.append([r0, r1])
         
         image_3_channel, ratio = radial_dark(image_3_channel, centers=denormalize_centers, radius_list=denormalize_radius, angles=random_angles)
-        
+        image_3_channel = dark_base * 255 + image_3_channel
         # conver numpy CHW
         # image_3_channel = image_3_channel.transpose((2, 0, 1))    
         
@@ -373,9 +388,15 @@ class RandDarkMask(BaseTransform):
         
         if self.random_position:
             random_positions = [[self.R.rand(), self.R.rand()] for _ in range(self.iteraiton)]
+
         if self.random_radius:
             min_, max_ = self.radius_range
-            random_radius = [[self.R.rand() * (max_ - min_) + min_, self.R.rand() * (max_ - min_) + min_] for _ in range(self.iteraiton)]
+            random_radius = []
+            for _ in range(self.iteraiton):
+                r1 = self.R.rand() * (max_ - min_) + min_
+                r2 = r1 * (1 + (self.R.rand() - 0.5) / 2)
+                # print(r1, r2)
+                random_radius.append([r1, r2])
         
         random_angles = [self.R.randint(0, 360) for _ in range(self.iteraiton)]
         
@@ -404,12 +425,12 @@ class RandDarkMask(BaseTransform):
             img_shape = results['img'].shape[:2]
             img = results['img']
             if self._random_prob_dark_channel() >= self.drak_channel_prob:
-                image_3_channel, ratio = self._drak(img, random_positions, random_radius, random_angles)
-            else:
+                img, ratio = self._drak(img, random_positions, random_radius, random_angles)
+            elif self._is_night(img):
                 res = self.drak_channel.run(img)
-                image_3_channel = (res - res.min()) / (res.max() - res.min()) * 255
+                img = (res - res.min()) / (res.max() - res.min()) * 255
                 
-            results['img'] = image_3_channel
+            results['img'] = img.astype(np.uint8)
 
         return results
 
@@ -504,8 +525,10 @@ class DarkChannel:
     
 if __name__ == "__main__":
     import imageio
-    dc = DarkChannel()
-    res = dc.run(cv2.imread("/root/workspace/data/GAIIC2024/val/rgb/00003.jpg"))
-    # print(res.max(), res.min())
-    res = (res - res.min()) / (res.max() - res.min()) * 220
+    # dc = DarkChannel()
+    # res = dc.run(cv2.imread("/root/workspace/data/GAIIC2024/val/rgb/00003.jpg"))
+    # # print(res.max(), res.min())
+    # res = (res - res.min()) / (res.max() - res.min()) * 220
+    transform = RandDarkMask(prob=1, dark_channel_prob=0)
+    res = transform.transform({"img": cv2.imread("/root/workspace/data/Visdrone/val/rgb/0000001_05499_d_0000010.jpg")})["img"]
     cv2.imwrite("debug3.png", res.astype(np.uint8))
