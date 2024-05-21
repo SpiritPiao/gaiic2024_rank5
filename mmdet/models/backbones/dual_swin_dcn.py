@@ -464,7 +464,7 @@ class SwinBlockSequence(BaseModule):
 
 
 @MODELS.register_module()
-class Dual_SwinTransformer(BaseModule):
+class Dual_SwinTransformer_Dcn(BaseModule):
     """ Swin Transformer
     A PyTorch implement of : `Swin Transformer:
     Hierarchical Vision Transformer using Shifted Windows`  -
@@ -568,7 +568,7 @@ class Dual_SwinTransformer(BaseModule):
         else:
             raise TypeError('pretrained must be a str or None')
 
-        super(Dual_SwinTransformer, self).__init__(init_cfg=init_cfg)
+        super(Dual_SwinTransformer_Dcn, self).__init__(init_cfg=init_cfg)
 
         num_layers = len(depths)
         self.out_indices = out_indices
@@ -615,7 +615,7 @@ class Dual_SwinTransformer(BaseModule):
         self.stages1 = ModuleList()
 
         # self.dcnv4_tir = ModuleList()
-        # self.dcnv4_rgb = ModuleList()
+        self.dcnv4_rgb = ModuleList()
         # self.pki = ModuleList()
         # self.pki2 = ModuleList()
         in_channels = embed_dims
@@ -659,9 +659,9 @@ class Dual_SwinTransformer(BaseModule):
             # self.pki.append(pki_layer)
             # self.pki2.append(pki_layer2)
             # dcnv4_tir = DCNV3_CSP(in_channels, in_channels, 2)
-            # dcnv4_rgb = DCNV3_CSP(in_channels, in_channels, 2)
-            # # self.dcnv4_tir.append(dcnv4_tir)
-            # self.dcnv4_rgb.append(dcnv4_rgb)
+            dcnv4_rgb = DCNV3_CSP(in_channels, in_channels, 2)
+            # self.dcnv4_tir.append(dcnv4_tir)
+            self.dcnv4_rgb.append(dcnv4_rgb)
             eaef = False
             if eaef:
                 eaef_layer = EAEF(in_channels)
@@ -704,7 +704,7 @@ class Dual_SwinTransformer(BaseModule):
 
     def train(self, mode=True):
         """Convert the model into training mode while keep layers freezed."""
-        super(Dual_SwinTransformer, self).train(mode)
+        super(Dual_SwinTransformer_Dcn, self).train(mode)
         self._freeze_stages()
 
     def _freeze_stages(self):
@@ -837,10 +837,10 @@ class Dual_SwinTransformer(BaseModule):
                 if eaef:
                     out_rgb, out_tir, out = self.eaef[i](out_rgb, out_tir)
                 else:
-                    # out_rgb1 = self.dcnv4_rgb[i](out_rgb)
-                    # # out_tir1 = self.dcnv4_tir[i](out_tir)
-                    # out_rgb = out_rgb1 + out_tir
-                    # out_tir = out_tir + out_rgb1
+                    out_rgb1 = self.dcnv4_rgb[i](out_rgb)
+                    # out_tir1 = self.dcnv4_tir[i](out_tir)
+                    out_rgb = out_rgb1 + out_tir
+                    out_tir = out_tir + out_rgb1
                     
                     out = out_rgb + out_tir
                     # if i == 0:

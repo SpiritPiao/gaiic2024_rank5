@@ -677,11 +677,14 @@ class CLAHE(BaseTransform):
 
 
     def __init__(self,
-                prob: float = 1) -> None:
+                prob: float = 1,
+                size :int =8
+                ) -> None:
         assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
                                  f'got {prob}.'
  
         self.prob = prob
+        self.size =size
 
     @cache_randomness
     def get_indexes(self, cache: list) -> list:
@@ -690,15 +693,15 @@ class CLAHE(BaseTransform):
 
     @autocast_box_type()
     def transform(self, results: dict) -> dict:
-        img2 = results['img2']
-        channels = cv2.split(img2)
-        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-        clahe_channels = [clahe.apply(channel) for channel in channels]
-        clahe_image = cv2.merge(clahe_channels)
-    
-            
-        # results['img'] = img1
-        results['img2'] = clahe_image
+        
+        if random.random() < self.prob:
+            img2 = results['img2']
+            channels = cv2.split(img2)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(self.size, self.size))
+            clahe_channels = [clahe.apply(channel) for channel in channels]
+            clahe_image = cv2.merge(clahe_channels)
+
+            results['img2'] = clahe_image
 
         return results
 

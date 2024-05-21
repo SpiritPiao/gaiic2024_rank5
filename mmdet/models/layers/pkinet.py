@@ -337,8 +337,71 @@ class PKIStage(BaseModule):
 
         return z
 
+class PKIOwn(BaseModule):
+    """Poly Kernel Inception Stage"""
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            num_blocks: int,
+            kernel_sizes: Sequence[int] = (3, 5, 7, 9, 11),
+            dilations: Sequence[int] = (1, 1, 1, 1, 1),
+            expansion: float = 0.5,
+            ffn_scale: float = 4.0,
+            ffn_kernel_size: int = 3,
+            dropout_rate: float = 0.,
+            drop_path_rate: Union[float, list] = 0.,
+            layer_scale: Optional[float] = 1.0,
+            shortcut_with_ffn: bool = True,
+            shortcut_ffn_scale: float = 4.0,
+            shortcut_ffn_kernel_size: int = 5,
+            add_identity: bool = True,
+            with_caa: bool = True,
+            caa_kernel_size: int = 11,
+            norm_cfg: Optional[dict] = dict(type='BN', momentum=0.03, eps=0.001),
+            act_cfg: Optional[dict] = dict(type='SiLU'),
+            init_cfg: Optional[dict] = None,
+    ):
+        super().__init__(init_cfg)
+        hidden_channels = make_divisible(int(out_channels * expansion), 8)
 
-@ROTATED_BACKBONES.register_module()
+        self.downsample = ConvModule(in_channels, out_channels, kernel_size=1, stride=1, padding=0,  dilation=1, norm_cfg=norm_cfg, act_cfg=act_cfg)
+
+        self.conv1 = ConvModule(out_channels, 2 * hidden_channels, kernel_size=1, stride=1, padding=0, dilation=1,
+                                norm_cfg=norm_cfg, act_cfg=act_cfg)
+        self.conv2 = ConvModule(2 * hidden_channels, out_channels, kernel_size=1, stride=1, padding=0, dilation=1,
+                                norm_cfg=norm_cfg, act_cfg=act_cfg)
+        self.conv3 = ConvModule(out_channels, out_channels, kernel_size=1, stride=1, padding=0, dilation=1,
+                                norm_cfg=norm_cfg, act_cfg=act_cfg)
+
+        self.ffn = ConvFFN(hidden_channels, hidden_channels, shortcut_ffn_scale, shortcut_ffn_kernel_size, 0.,
+                           add_identity=True, norm_cfg=None, act_cfg=None) if shortcut_with_ffn else None
+
+        self.blocks = nn.ModuleList([
+            PKIBlock(hidden_channels, hidden_channels, kernel_sizes, dilations, with_caa,
+                     caa_kernel_size+2*i, 1.0, ffn_scale, ffn_kernel_size, dropout_rate,
+                     drop_path_rate[i] if isinstance(drop_path_rate, list) else drop_path_rate,
+                     layer_scale, add_identity, norm_cfg, act_cfg) for i in range(num_blocks)
+        ])
+
+    def forward(self, x):
+        x = self.downsample(x)
+
+        x, y = list(self.conv1(x).chunk(2, 1))
+        if self.ffn is not None:
+            x = self.ffn(x)
+
+        z = [x]
+        t = torch.zeros(y.shape, device=y.device)
+        for block in self.blocks:
+            t = t + block(y)
+        z.append(t)
+        z = torch.cat(z, dim=1)
+        z = self.conv2(z)
+        z = self.conv3(z)
+
+        return z
+    
 class PKINet(BaseModule):
     """Poly Kernel Inception Network"""
     arch_settings = {

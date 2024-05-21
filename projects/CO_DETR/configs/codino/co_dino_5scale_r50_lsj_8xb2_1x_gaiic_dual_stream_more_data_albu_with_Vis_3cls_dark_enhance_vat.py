@@ -13,7 +13,10 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
                                'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.datasets.my_coco',
-                               'projects.CO_DETR.codetr'
+                               'projects.CO_DETR.codetr',
+                               'projects.CO_DETR.codetr.codetr_dual_stream_vat',
+                               'projects.CO_DETR.codetr.co_dino_head _vat',
+                               'projects.CO_DETR.codetr.codetr_dual_stream_dual_swin_vat'
                                ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
@@ -37,7 +40,7 @@ num_dec_layer = 6
 loss_lambda = 2.0
 
 model = dict(
-    type='CoDETR_Dual',
+    type='CoDETR_Dual_Vat',
     # If using the lsj augmentation,
     # it is recommended to set it to True.
     use_lsj=True,
@@ -71,7 +74,7 @@ model = dict(
         norm_cfg=dict(type='GN', num_groups=32),
         num_outs=5),
     query_head=dict(
-        type='CoDINOHead',
+        type='CoDINOHead_Vat',
         num_query=900,
         num_classes=num_classes,
         in_channels=2048,
@@ -517,29 +520,10 @@ img_scales = [(1024, 1024), (960, 960), (1280, 1280)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),
-    # dict(type='CLAHE', prob = 1),
+    dict(type='CLAHE', prob = 1),
     dict(
         type='TestTimeAug',
         transforms=[
-            [
-                dict(
-                    type='Branch',
-                    transforms=[dict(type='CLAHE', prob = 1)]
-                ),
-                dict(
-                    type='Branch',
-                    transforms=[dict(type='CLAHE', prob = 0)]
-                ),
-                dict(
-                    type='Branch',
-                    transforms=[dict(type='CLAHE', prob = 1, size = 16)]
-                ),
-                dict(
-                    type='Branch',
-                    transforms=[dict(type='CLAHE', prob = 1, size = 32)]
-                )
-            ],
-
             [
                 dict(
                     type='Branch',
