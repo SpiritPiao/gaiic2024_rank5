@@ -313,7 +313,7 @@ load_pipeline = [
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     # dict(type='Bright', prob = 1),
-    dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
+    dict(type='RandDarkMask', prob=0.2, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
     dict(type='Albumentation', prob = 1),
 
@@ -337,7 +337,7 @@ load_pipeline = [
                     ratio_range=(0.1, 2.0),
                     keep_ratio=True),
                 dict(
-                    type='RandomCrop',
+                    type='RandomCropX',
                     crop_type='absolute_range',
                     crop_size=image_size,
                     recompute_bbox=True,
@@ -439,15 +439,10 @@ val_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
 #     ann_file=data_root_vis + 'annotations/test_tir.json')
-val_dataloader = dict(
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
+val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
         data_root=data_root_vis,
-        test_mode=True,
         ann_file='val.json',
         data_prefix=dict(img='images/val/rgb'),
         pipeline=val_pipeline))
@@ -537,23 +532,30 @@ img_scales = [(1024, 1024)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),
-    dict(type='CLAHE', prob = 1),
-    # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
-    # dict(type='Bright', prob = 1),
+    # dict(type='CLAHE', prob = 1),
+    dict(type='Bright', prob = 1),
     dict(
         type='TestTimeAug',
         transforms=[
             [
                 dict(
                     type='Branch',
-                    transforms=[dict(type='RandDarkMask', prob=1, dark_channel_prob=1)]
+                    transforms=[dict(type='CLAHE', prob = 1)]
                 ),
                 dict(
                     type='Branch',
-                    transforms=[dict(type='RandDarkMask', prob=0, dark_channel_prob=1)]
+                    transforms=[dict(type='CLAHE', prob = 0)]
                 ),
-                
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='CLAHE', prob = 1, size = 16)]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='CLAHE', prob = 1, size = 32)]
+                )
             ],
+
             [
                 dict(
                     type='Branch',

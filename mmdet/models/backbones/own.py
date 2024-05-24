@@ -5,12 +5,15 @@ from .ops_dcnv3.modules import DCNv3
 class DCNV4_YOLO(nn.Module):
     def __init__(self, inc, ouc, k=1, s=1, p=None, g=1, d=1, act=True):
         super().__init__()
-
+        if inc != ouc:
+            self.stem_conv = Conv(inc, ouc, k=1)
         self.dcnv4 = DCNv4(ouc, kernel_size=k, stride=s, pad=autopad(k, p, d), group=g, dilation=d)
         self.bn = nn.BatchNorm2d(ouc)
         self.act = nn.SiLU()
 
     def forward(self, x):
+        if hasattr(self, 'stem_conv'):
+            x = self.stem_conv(x)
         x = self.dcnv4(x, (x.size(2), x.size(3)))
         x = self.act(self.bn(x))
         return x

@@ -118,6 +118,32 @@ class Stem(BaseModule):
         return self.conv2(self.conv1(self.down_conv(x)))
 
 
+
+class Stem_Pki(BaseModule):
+    """Stem layer"""
+    def __init__(
+            self,
+            in_channels: int,
+            out_channels: int,
+            expansion: float = 1.0,
+            norm_cfg: Optional[dict] = dict(type='BN', momentum=0.03, eps=0.001),
+            act_cfg: Optional[dict] = dict(type='SiLU'),
+            init_cfg: Optional[dict] = None,
+    ):
+        super().__init__(init_cfg)
+        hidden_channels = make_divisible(int(out_channels * expansion), 8)
+
+        self.down_conv = ConvModule(in_channels, hidden_channels, kernel_size=3, stride=2, padding=1,
+                                    norm_cfg=norm_cfg, act_cfg=act_cfg)
+        self.conv1 = ConvModule(hidden_channels, hidden_channels, kernel_size=3, stride=1, padding=1,
+                                norm_cfg=norm_cfg, act_cfg=act_cfg)
+        self.conv2 = ConvModule(hidden_channels, out_channels, kernel_size=3, stride=1, padding=1,
+                                norm_cfg=norm_cfg, act_cfg=act_cfg)
+
+    def forward(self, x):
+        return self.conv2(self.conv1(self.down_conv(x)))
+
+
 class DownSamplingLayer(BaseModule):
     """Down sampling layer"""
     def __init__(

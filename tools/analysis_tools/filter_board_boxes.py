@@ -124,9 +124,9 @@ def filter_boundary_boxes(boxes, scores, labels, h, w, cids, dis_threshold, area
     valid_area_indices = (area < area_threshold)
 
     valid_hw_ratio_indices = (hw_ratio < 1 / hw_ratio_threshold) | (hw_ratio > hw_ratio_threshold)
-    
+    valid_score_indices = scores > 0.3
     target = bound_boxes_indices & valid_cid_indices
-    valid_indices = (target & valid_area_indices) | (target & valid_hw_ratio_indices)
+    valid_indices = valid_score_indices & target & valid_area_indices | (target & valid_hw_ratio_indices)
     # try:
     #     print(scores[valid_indices].max())
     # except:
@@ -173,6 +173,7 @@ def main():
         t = cocoGT.loadImgs(int(image_id))[0]
         
         h, w = t['height'], t['width']
+        cnt += len(res['bboxes_list'])
         bboxes, scores, labels, filte_success = filter_boundary_boxes(
             res['bboxes_list'],
             res['scores_list'],
@@ -183,7 +184,7 @@ def main():
             area_threshold=args.fiter_area,
             hw_ratio_threshold=args.fiter_hw_ratio)
         f_cnt += filte_success
-        cnt += len(bboxes)
+        
         
         for bbox, score, label in zip(bboxes, scores, labels):
             result.append({

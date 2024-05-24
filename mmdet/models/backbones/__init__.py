@@ -20,6 +20,7 @@ from .swin import SwinTransformer
 from .dual_swin import Dual_SwinTransformer
 from .dual_swin_reg import Dual_SwinTransformer_Reg
 from .dual_swin_c2former import Dual_SwinTransformer_C2Former
+from .dual_swin_cbnet_pki import Dual_SwinTransformer_CBPki
 from .trident_resnet import TridentResNet
 
 __all__ = [

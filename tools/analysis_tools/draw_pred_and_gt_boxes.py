@@ -66,7 +66,7 @@ def draw_text(img, text,
           font=cv2.FONT_HERSHEY_COMPLEX_SMALL,
           pos=(0, 0),
           font_scale=1,
-          font_thickness=2,
+          font_thickness=1,
           text_color=(0, 255, 0),
           text_color_bg=(0, 0, 0)
           ):
@@ -209,14 +209,14 @@ def crop_bbox(images, box, pred_id, label_id, file_name):
 
 
 if __name__ == "__main__":
-    # parse("/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_pianyi/image_boxes.pk",
-    #       ["/root/workspace/data/GAIIC2024/val/rgb", "/root/workspace/data/GAIIC2024/val/tir"],
-    #       "/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_pianyi/outputs")
+    parse("/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_pianyi/image_boxes.pk",
+          ["/root/workspace/data/GAIIC2024/val/rgb", "/root/workspace/data/GAIIC2024/val/tir"],
+          "/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_pianyi/outputs")
 
     # parse("/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_pianyi/image_boxes.pk",
     #       ["/root/workspace/data/GAIIC2024/val/rgb", "/root/workspace/data/GAIIC2024/val/tir"],
     #       "/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_pianyi/outputs/val", func=crop_bbox)
     
-    parse("/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu_train/image_boxes.pk",
-        ["/root/workspace/data/GAIIC2024/train_more/rgb", "/root/workspace/data/GAIIC2024/train_more/tir"],
-        "/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu_train/outputs/train", func=crop_bbox)
+    # parse("/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu_train/image_boxes.pk",
+    #     ["/root/workspace/data/GAIIC2024/train_more/rgb", "/root/workspace/data/GAIIC2024/train_more/tir"],
+    #     "/root/workspace/data/dual_mmdetection/mmdetection/analysis_results/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_yang_more_data_albu_train/outputs/train", func=crop_bbox)

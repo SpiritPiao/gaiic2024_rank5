@@ -380,8 +380,8 @@ train_dataloader = dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
             data_root=data_root,
-            ann_file='merged_coco_new_vis_3cls.json',
-            data_prefix=dict(img='train_with_Vis_3cls/rgb'),
+            ann_file='merged_coco_new_vis_5cls.json',
+            data_prefix=dict(img='train_with_Vis_5cls/rgb'),
             pipeline=train_pipeline
         )
     )
@@ -439,15 +439,10 @@ val_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
 #     ann_file=data_root_vis + 'annotations/test_tir.json')
-val_dataloader = dict(
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
+val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
         data_root=data_root_vis,
-        test_mode=True,
         ann_file='val.json',
         data_prefix=dict(img='images/val/rgb'),
         pipeline=val_pipeline))
@@ -513,7 +508,7 @@ param_scheduler = [
 ]
 
 default_hooks = dict(
-    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=7))
+    checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=4))
 log_processor = dict(by_epoch=True)
 
 # NOTE: `auto_scale_lr` is for automatically scaling LR,

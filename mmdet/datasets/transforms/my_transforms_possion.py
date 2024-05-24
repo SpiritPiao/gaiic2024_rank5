@@ -713,30 +713,127 @@ class CLAHE(BaseTransform):
         repr_str += f'pad_val={self.pad_val}, '
         repr_str += f'prob={self.prob})'
         return repr_str
-
+    
 @TRANSFORMS.register_module()
-class Pre_mixup(BaseTransform):
+class Bright(BaseTransform):
 
 
     def __init__(self,
-                 img_scale: Tuple[int, int] = (640, 640),
-                 center_ratio_range: Tuple[float, float] = (0.5, 1.5),
-                 bbox_clip_border: bool = True,
-                 pad_val: float = 114.0,
-                 prob: float = 1.0) -> None:
-        assert isinstance(img_scale, tuple)
+                prob: float = 1,
+                ) -> None:
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+ 
+        self.prob = prob
+
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+    def is_dark_image(image, threshold=50):
+        assert len(image.shape) in [2, 3], "Invalid input image!"
+        gray_image = cv2.cvtColor(image, cv2.COLOR_RGB2GRAY)
+        mean_brightness = np.mean(gray_image)
+        return mean_brightness < threshold
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        
+        if random.random() < self.prob:
+            img1 = results['img']
+            # gray_image = cv2.cvtColor(img1, cv2.COLOR_RGB2GRAY)
+            image_rgb = cv2.cvtColor(img1, cv2.COLOR_BGR2RGB)
+
+            gray_image = cv2.cvtColor(image_rgb, cv2.COLOR_RGB2GRAY)
+            mean_brightness = np.mean(gray_image)
+            is_dark =  mean_brightness < 50
+
+            if is_dark:
+                image_float = image_rgb.astype(np.float32) / 255.0
+
+                alpha = 2.0  # 提亮系数，可以根据需要调整
+                bright_image = np.clip(image_float * alpha, 0, 1)
+                bright_image_uint8 = (bright_image * 255).astype(np.uint8)
+                img1 = bright_image_uint8
+            else:
+                pass
+
+            results['img'] = img1
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+    
+@TRANSFORMS.register_module()
+class RandomCLAHE(BaseTransform):
+
+
+    def __init__(self,
+                prob: float = 1,
+                size :int =8
+                ) -> None:
+        assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
+                                 f'got {prob}.'
+ 
+        self.prob = prob
+        self.size =size
+
+    @cache_randomness
+    def get_indexes(self, cache: list) -> list:
+        indexes = [random.randint(0, len(cache) - 1) for _ in range(3)]
+        return indexes
+
+    @autocast_box_type()
+    def transform(self, results: dict) -> dict:
+        size = [8, 8, 8, 16, 32, 64]
+        chosen_size = random.choice(size)
+        p_no = 0.1
+        if random.random() < 1 - p_no:
+            img2 = results['img2']
+            channels = cv2.split(img2)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(chosen_size, chosen_size))
+            clahe_channels = [clahe.apply(channel) for channel in channels]
+            clahe_image = cv2.merge(clahe_channels)
+
+            results['img2'] = clahe_image
+        else:
+            pass
+
+        return results
+
+
+    def __repr__(self):
+        repr_str = self.__class__.__name__
+        repr_str += f'(img_scale={self.img_scale}, '
+        repr_str += f'center_ratio_range={self.center_ratio_range}, '
+        repr_str += f'pad_val={self.pad_val}, '
+        repr_str += f'prob={self.prob})'
+        return repr_str
+    
+@TRANSFORMS.register_module()
+class Cache_Mixup(BaseTransform):
+
+
+    def __init__(self,
+                 prob: float = 1.0,
+                 max_cache = 100) -> None:
         assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
                                  f'got {prob}.'
 
-        log_img_scale(img_scale, skip_square=True, shape_order='wh')
-        self.img_scale = img_scale
-        self.center_ratio_range = center_ratio_range
-        self.bbox_clip_border = bbox_clip_border
-        self.pad_val = pad_val
         self.prob = prob
-        self.cropp_img = []
-        self.cropp_img_class = []
-        self.cropp_img_2 = []
+        self.max_cache = max_cache
+        self.mixup_img_rgb = []
+        self.mixup_img_tir = []
+        self.gt_bboxes = []
+        self.gt_bboxes_labels = []
+        self.gt_ignore_flags = []
         self.number = 0
     @cache_randomness
     def get_indexes(self, cache: list) -> list:
@@ -754,43 +851,61 @@ class Pre_mixup(BaseTransform):
 
     @autocast_box_type()
     def transform(self, results: dict) -> dict:
-        """Mosaic transform function.
+        import random
+        if random.random() < self.prob:
+            img1 = results['img']
+            img2 = results['img2']
+            gt_bboxes = results['gt_bboxes']
+            gt_bboxes_labels = results['gt_bboxes_labels']
+            gt_ignore_flags = results['gt_ignore_flags']
 
-        Args:
-            results (dict): Result dict.
+            img_shape = results['img_shape']
+            if img_shape[1] == 640:
 
-        Returns:
-            dict: Updated result dict.
-        """
-        # self.results_cache.append(copy.deepcopy(results))
+                self.mixup_img_rgb.append(copy.deepcopy(img1))
+                self.mixup_img_tir.append(copy.deepcopy(img2))
+                self.gt_bboxes.append(copy.deepcopy(gt_bboxes))
+                self.gt_bboxes_labels.append(copy.deepcopy(gt_bboxes_labels))
+                self.gt_ignore_flags.append(copy.deepcopy(gt_ignore_flags))
+                if len(self.mixup_img_rgb) >= 1:
 
-        # if len(self.cropp_img) <= 4:
-        #     return results
+                    index = random.choices(range(0, len(self.mixup_img_rgb)), k=1)[0]
+                    new_mixup_img_rgb = self.mixup_img_rgb[index].copy()
+                    new_mixup_img_tir = self.mixup_img_tir[index].copy()
+                    new_gt_bboxes = self.gt_bboxes[index]
+                    new_gt_bboxes_labels = self.gt_bboxes_labels[index].copy()
+                    new_gt_ignore_flags = self.gt_ignore_flags[index].copy()
 
+                    r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
+                    out_mixup_img_rgb = (img1 * r + new_mixup_img_rgb * (1 - r)).astype(np.uint8)
+                    out_mixup_img_tir = (img2 * r + new_mixup_img_tir * (1 - r)).astype(np.uint8)
+                    out_gt_bboxes = gt_bboxes.cat(
+                                    (new_gt_bboxes, gt_bboxes), dim=0)
+                    out_gt_bboxes_labels = np.concatenate(
+                                    (gt_bboxes_labels, new_gt_bboxes_labels), axis=0)
+                    mixup_gt_ignore_flags = np.concatenate(
+                                    (gt_ignore_flags, new_gt_ignore_flags), axis=0)
+                    
+                    results['img'] = out_mixup_img_rgb
+                    results['img2'] = out_mixup_img_tir
+                    results['gt_bboxes'] = out_gt_bboxes
+                    results['gt_bboxes_labels'] = out_gt_bboxes_labels
+                    results['gt_ignore_flags'] = mixup_gt_ignore_flags
+                else:
+                    pass
 
-        # TODO: refactor mosaic to reuse these code.
-        mosaic_bboxes = []
-        mosaic_bboxes_labels = []
-        mosaic_ignore_flags = []
-
-        # if len(results['img'].shape) == 3:
-        #     mosaic_img = np.full(
-        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2), 3),
-        #         self.pad_val,
-        #         dtype=results['img'].dtype)
-        #     mosaic_img2 = np.full(
-        #         (int(self.img_scale[1] * 2), int(self.img_scale[0] * 2), 3),
-        #         self.pad_val,
-        #         dtype=results['img2'].dtype)
-            
-        mixup_img1 = results['img']
-        mixup_img2 = results['img2']
-        r = np.random.beta(32.0, 32.0)  # mixup ratio, alpha=beta=32.0
-        mixup_img1 = (mixup_img1 * r + mixup_img2 * (1 - r)).astype(np.uint8)
-         
-        results['img'] = mixup_img1
-        results['img_2'] = mixup_img2
-
+                if len(self.mixup_img_rgb) >= self.max_cache:
+                    index1 = random.choices(range(0, len(self.mixup_img_rgb)), k=self.max_cache // 2)
+                    counter = 0
+                    for index_del in index1:
+                        index_del = index_del - counter
+                        self.mixup_img_rgb.pop(index_del)
+                        self.mixup_img_tir.pop(index_del)
+                        self.gt_bboxes.pop(index_del)
+                        self.gt_bboxes_labels.pop(index_del)
+                        self.gt_ignore_flags.pop(index_del)
+                        counter += 1
+                
         return results
    
 
