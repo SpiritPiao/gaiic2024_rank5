@@ -12,15 +12,10 @@ from mmdet.models.detectors.base import BaseDetector
 from mmdet.registry import MODELS
 from mmdet.structures import OptSampleList, SampleList
 from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
-
-## Registration libs
-from mmdet.models.layers.registration import SpatialTransformer
-from projects.CO_DETR.codetr.registration_net import Unet
-import torch.nn.functional as F
-from torch.distributions.normal import Normal
+# from .dual_resnet import Dual_ResNet
 
 @MODELS.register_module()
-class CoDETR_Dual_Reg(BaseDetector):
+class CoDETR_Dual_Swin_Pkiv2(BaseDetector):
 
     def __init__(
             self,
@@ -32,7 +27,6 @@ class CoDETR_Dual_Reg(BaseDetector):
             bbox_head=[None],  # one-stage
             train_cfg=[None, None],
             test_cfg=[None, None],
-            input_fix_shape = [1024, 1024],
             # Control whether to consider positive samples
             # from the auxiliary head as additional positive queries.
             with_pos_coord=True,
@@ -42,7 +36,7 @@ class CoDETR_Dual_Reg(BaseDetector):
             eval_index=0,
             data_preprocessor: OptConfigType = None,
             init_cfg: OptMultiConfig = None):
-        super(CoDETR_Dual_Reg, self).__init__(
+        super(CoDETR_Dual_Swin_Pkiv2, self).__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
         self.with_pos_coord = with_pos_coord
         self.use_lsj = use_lsj
@@ -51,7 +45,7 @@ class CoDETR_Dual_Reg(BaseDetector):
         self.eval_module = eval_module
 
         self.backbone1 = MODELS.build(backbone)
-        self.backbone2 = MODELS.build(backbone)
+        # self.backbone2 = MODELS.build(backbone)
         
         if neck is not None:
             self.neck = MODELS.build(neck)
@@ -105,42 +99,45 @@ class CoDETR_Dual_Reg(BaseDetector):
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        ################## Align Features ##################
-        assert len(neck['in_channels']) == 4, "Only accept input neck channels eq to 4."
-        self.reg_net_256 = Unet(len(neck['in_channels']) * 2)
-        
-        self.spt_256 = SpatialTransformer(size=(input_fix_shape[0] // 4, input_fix_shape[1] // 4))
-        self.spt_128 = SpatialTransformer(size=(input_fix_shape[0] // 8, input_fix_shape[1] // 8))
-        self.spt_64 = SpatialTransformer(size=(input_fix_shape[0] // 16, input_fix_shape[1] // 16))
-        self.spt_32 = SpatialTransformer(size=(input_fix_shape[0] // 32, input_fix_shape[1] // 32))
-        
-        # configure unet to flow field layer
-        Conv = getattr(nn, 'Conv%dd' % 2)
-        self.flow = Conv(2, 2, kernel_size=3, padding=1)
 
         
-        # init flow layer with small weights and bias
-        self.flow.weight = nn.Parameter(Normal(0, 1e-5).sample(self.flow.weight.shape))
-        self.flow.bias = nn.Parameter(torch.zeros(self.flow.bias.shape))
-        
-
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
         # Find backbone parameters
         copy_ori = False
         ori_backbone_params = []
         ori_backbone_key = []
         for k, v in state_dict.items():
-            if k.startswith("backbone")  and "backbone1" not in k and "backbone2" not in k:
+            # if k.startswith("backbone.layer1")  and "layer1_t" not in k:
+            if ("backbone2.patch_embed" in k and "backbone1.patch_embed1" not in k) or  ("backbone2.stages" in k and "backbone1.stages1" not in k
+            or ("backbone2.norm" in k and "backbone1.tir_norm"  not in k) or ("pki_stages.0.downsample" in k and "pki_down.0"  not in k)
+            or ("pki_stages.1.downsample" in k and "pki_down.1"  not in k) or ("pki_stages.2.downsample" in k and "pki_down.2"  not in k)
+            or ("pki_stages.3.downsample" in k and "pki_down.3"  not in k)):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
                 copy_ori = True
+            # if ("backbone.patch_embed" in k and "backbone.patch_embed1" not in k) or  ("backbone.stages" in k and "backbone.stages1" not in k
+            # or ("backbone.norm" in k and "backbone.tir_norm"  not in k) ):
+            #     # Pretrained on original model
+            #     ori_backbone_params += [v]
+            #     ori_backbone_key += [k]
+            #     copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
-                state_dict[k.replace("backbone", "backbone1")] = v
-                state_dict[k.replace("backbone", "backbone2")] = copy.deepcopy(v)
-                del state_dict[k]
+                state_dict[k.replace("backbone2.patch_embed", "backbone1.patch_embed1")] = copy.deepcopy(v)
+                state_dict[k.replace("backbone2.stages", "backbone1.stages1")] = copy.deepcopy(v)
+                state_dict[k.replace("backbone2.norm" , "backbone1.tir_norm")] = copy.deepcopy(v)
+
+                state_dict[k.replace("pki_stages.0.downsample" , "pki_down.0")] = copy.deepcopy(v)
+                state_dict[k.replace("pki_stages.1.downsample" , "pki_down.1")] = copy.deepcopy(v)
+                state_dict[k.replace("pki_stages.2.downsample" , "pki_down.2")] = copy.deepcopy(v)
+                state_dict[k.replace("pki_stages.3.downsample" , "pki_down.3")] = copy.deepcopy(v)
+                # state_dict[k] = v
+                # state_dict[k.replace("backbone.patch_embed", "backbone.patch_embed1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.stages", "backbone.stages1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.norm" , "backbone.tir_norm")] = copy.deepcopy(v)
+                # del state_dict[k]
             # Force set the strict to "False"
             strict = False
         return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
@@ -188,6 +185,7 @@ class CoDETR_Dual_Reg(BaseDetector):
             # dv.add_datasample('image', image, data_samples[0], draw_gt=True, show=True)
             # dv.add_datasample('image2', image2, data_samples[0], draw_gt=True, show=True)
             
+            
             if mode == 'loss':
                 return self.loss(inputs, inputs2, data_samples)
             elif mode == 'predict':
@@ -227,45 +225,6 @@ class CoDETR_Dual_Reg(BaseDetector):
                 or (hasattr(self, 'bbox_head') and self.bbox_head is not None
                     and len(self.bbox_head) > 0))
 
-
-    def feat_align(self, x, y):
-        shape = x[0].shape[2:]
-
-        fuse_x = [] 
-        fuse_y = [] 
-        z = [] 
-        for idx, i in enumerate(x):
-            j = i
-            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, align_corners=True, mode="bilinear")
-            fuse_x.append(j)
-        
-        for idx, i in enumerate(y):
-            j = i
-            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, align_corners=True, mode="bilinear")
-            fuse_y.append(j)
-        
-        fuse_x = torch.concat(fuse_x, dim=1)
-        fuse_y = torch.concat(fuse_y, dim=1)
-        
-        # Normalize
-        fuse_x = (fuse_x - fuse_x.mean().detach()) / (fuse_x.std().detach() + 1e-3)
-        fuse_y = (fuse_y - fuse_y.mean().detach()) / (fuse_y.std().detach() + 1e-3)
-        
-        flow = self.flow(self.reg_net_256(fuse_x, fuse_y))
-        flow = torch.clamp(flow, -8 * 4, 8 * 4)
-
-        ## Concat ##
-        for idx, (i, j, spt) in enumerate(zip(x, y, [self.spt_256, self.spt_128, self.spt_64, self.spt_32])):
-            ## Align Features ##
-            hr1_f = i
-            hr2_f = j
-            flow = F.interpolate(flow, size=shape, align_corners=True, mode="bilinear")
-            z.append(spt.forward(hr1_f, flow) + hr2_f)
-            shape = [shape[0] // 2, shape[1] // 2]
-            flow = flow * .5
-            
-        return z
-
     def extract_feat(self, batch_inputs: Tensor, batch_inputs2: Tensor) -> Tuple[Tensor]:
         """Extract features.
 
@@ -276,12 +235,18 @@ class CoDETR_Dual_Reg(BaseDetector):
             tuple[Tensor]: Tuple of feature maps from neck. Each feature map
             has shape (bs, dim, H, W).
         """
-
-        x = self.backbone1(batch_inputs)
-        y = self.backbone1(batch_inputs2)
+                
+        # x = list(self.backbone1(batch_inputs))
+        # y = list(self.backbone2(batch_inputs2))
+        z = list(self.backbone1([batch_inputs,batch_inputs2]))
         
-        z = self.feat_align(x, y)
-
+        ## Concat #
+        # x[0], y[0] = self.eaef1([x[0], y[0]])
+        # x[1], y[1] = self.eaef2([x[1], y[1]])
+        # x[2], y[2] = self.eaef3([x[2], y[2]])
+        # x[3], y[3] = self.eaef4([x[3], y[3]])
+        # z = [i + j for i, j in zip(x, y)]
+        
         if self.with_neck:
             z = self.neck(z)
         return z
@@ -471,3 +436,79 @@ class CoDETR_Dual_Reg(BaseDetector):
             mlvl_feats = results[-1]
         return self.bbox_head[self.eval_index].predict(
             mlvl_feats, batch_data_samples, rescale=rescale)
+class EAEF(nn.Module):
+    def __init__(self, dim):
+        super().__init__()
+        self.mlp_pool = Feature_Pool(dim)
+        self.dwconv = nn.Conv2d(dim*2,dim*2,kernel_size=7,padding=3,groups=dim)
+        self.ecse = Channel_Attention(dim*2)
+        # self.ccse = Channel_Attention(dim)
+        self.sse_r = Spatial_Attention(dim)
+        self.sse_t = Spatial_Attention(dim)
+    def forward(self, x):
+        ############################################################################
+        RGB,T = x[0], x[1]
+        b, c, h, w = RGB.size()
+        rgb_y = self.mlp_pool(RGB)
+        t_y = self.mlp_pool(T)
+        rgb_y = rgb_y / rgb_y.norm(dim=1, keepdim=True)
+        t_y = t_y / t_y.norm(dim=1, keepdim=True)
+        rgb_y = rgb_y.view(b, c, 1)
+        t_y = t_y.view(b, 1, c)
+        logits_per = c * rgb_y @ t_y
+        cross_gate = torch.diagonal(torch.sigmoid(logits_per)).reshape(b, c, 1, 1)
+        add_gate = torch.ones(cross_gate.shape).cuda() - cross_gate
+        ##########################################################################
+        New_RGB_e = RGB * cross_gate
+        New_T_e = T * cross_gate
+        New_RGB_c = RGB * add_gate
+        New_T_c = T * add_gate
+        x_cat_e = torch.cat((New_RGB_e, New_T_e), dim=1)
+        ##########################################################################
+        fuse_gate_e = torch.sigmoid(self.ecse(self.dwconv(x_cat_e)))
+        rgb_gate_e, t_gate_e = fuse_gate_e[:, 0:c, :], fuse_gate_e[:, c:c * 2, :]
+        ##########################################################################
+        New_RGB = New_RGB_e * rgb_gate_e + New_RGB_c
+        New_T = New_T_e * t_gate_e + New_T_c
+        ##########################################################################
+        New_fuse_RGB = self.sse_r(New_RGB)
+        New_fuse_T = self.sse_t(New_T)
+        attention_vector = torch.cat([New_fuse_RGB, New_fuse_T], dim=1)
+        attention_vector = torch.softmax(attention_vector, dim=1)
+        attention_vector_l, attention_vector_r = attention_vector[:, 0:1, :, :], attention_vector[:, 1:2, :, :]
+        New_RGB = New_RGB * attention_vector_l
+        New_T = New_T * attention_vector_r
+        # New_fuse = New_T + New_RGB
+        out = New_RGB, New_T
+        ##########################################################################
+        return out
+class Feature_Pool(nn.Module):
+    def __init__(self, dim, ratio=2):
+        super(Feature_Pool, self).__init__()
+        self.gap_pool = nn.AdaptiveAvgPool2d(1)
+        self.down = nn.Linear(dim, dim * ratio)
+        self.act = nn.GELU()
+        self.up = nn.Linear(dim * ratio, dim)
+    def forward(self, x):
+        b, c, _, _ = x.size()
+        y = self.up(self.act(self.down(self.gap_pool(x).permute(0,2,3,1)))).permute(0,3,1,2).view(b,c)
+        return y
+class Channel_Attention(nn.Module):
+    def __init__(self, dim, ratio=16):
+        super(Channel_Attention, self).__init__()
+        self.gap_pool = nn.AdaptiveMaxPool2d(1)
+        self.down = nn.Linear(dim, dim//ratio)
+        self.act = nn.GELU()
+        self.up = nn.Linear(dim//ratio, dim)
+    def forward(self, x):
+        max_out = self.up(self.act(self.down(self.gap_pool(x).permute(0,2,3,1)))).permute(0,3,1,2)
+        return max_out
+
+class Spatial_Attention(nn.Module):
+    def __init__(self, dim):
+        super(Spatial_Attention, self).__init__()
+        self.conv1 = nn.Conv2d(dim, 1, kernel_size=1,bias=True)
+    def forward(self, x):
+        x1 = self.conv1(x)
+        return x1
+    
