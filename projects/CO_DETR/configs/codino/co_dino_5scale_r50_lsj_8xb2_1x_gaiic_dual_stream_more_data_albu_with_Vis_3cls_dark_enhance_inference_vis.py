@@ -37,7 +37,7 @@ num_dec_layer = 6
 loss_lambda = 2.0
 
 model = dict(
-    type='CoDETR_Dual_Reg',
+    type='CoDETR_Dual',
     # If using the lsj augmentation,
     # it is recommended to set it to True.
     use_lsj=True,
@@ -312,14 +312,6 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(
-        type='Rotate',
-        prob=0.1,
-        # level=0,
-        # min_mag=90.0,
-        max_mag=180.0,
-        # reversal_prob=1.,
-    ),
     # dict(type='Bright', prob = 1),
     dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
@@ -330,7 +322,7 @@ load_pipeline = [
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
-
+    
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
 
@@ -442,7 +434,7 @@ val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
     classwise=True,
-    ann_file=data_root + 'val.json')
+    ann_file='/root/workspace/data/Visdrone/orin_text/3cls/Vis_3cls.json')
 # val_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
@@ -454,10 +446,10 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        data_root=data_root_vis,
+        data_root='/root/workspace/data/Visdrone/orin_text/',
         test_mode=True,
-        ann_file='val.json',
-        data_prefix=dict(img='images/val/rgb'),
+        ann_file='3cls/Vis_3cls.json',
+        data_prefix=dict(img='vs_images/train/rgb'),
         pipeline=val_pipeline))
 # val_dataloader = dict(dataset=dict(
 #         type=dataset_type,
@@ -472,27 +464,27 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
-    # outfile_prefix='./VisDrone2019'
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
-)
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     ann_file='/root/workspace/data/Visdrone/' + 'Vis_test.json',
+#     outfile_prefix='./VisDrone2019_new'
+#     # ann_file=data_root + 'instances_test2017.json',
+#     # outfile_prefix='./dual_test_result'
+# )
 
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root = data_root,
-        # data_root='/root/workspace/data/Visdrone/',
-        # ann_file='orin_text/5cls/train.json',
-        # data_prefix=dict(img='train/rgb'),
+# test_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         # data_root = data_root,
+#         data_root='/root/workspace/data/Visdrone/',
+#         ann_file='Vis_test.json',
+#         # data_prefix=dict(img='train/rgb'),
         
-        ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
+#         # ann_file='instances_test2017.json',
+#         data_prefix=dict(img='train/rgb'),
+#         pipeline=test_pipeline))
 
 
 optim_wrapper = dict(
@@ -551,17 +543,6 @@ tta_pipeline = [
     dict(
         type='TestTimeAug',
         transforms=[
-            # [
-            #     dict(
-            #         type='Branch',
-            #         transforms=[dict(type='RandDarkMask', prob=1, dark_channel_prob=1)]
-            #     ),
-            #     dict(
-            #         type='Branch',
-            #         transforms=[dict(type='RandDarkMask', prob=0, dark_channel_prob=1)]
-            #     ),
-                
-            # ],
             [
                 dict(
                     type='Branch',

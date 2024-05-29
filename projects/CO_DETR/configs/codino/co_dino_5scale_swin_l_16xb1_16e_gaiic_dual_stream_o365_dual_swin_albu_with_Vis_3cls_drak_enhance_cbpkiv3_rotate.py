@@ -1,4 +1,4 @@
-_base_ = ['co_dino_5scale_r50_lsj_8xb2_1x_gaiic_dual_stream_more_data_albu_with_Vis_3cls_dark_enhance_rotate.py']
+_base_ = ['co_dino_5scale_r50_lsj_8xb2_1x_gaiic_dual_stream_more_data_albu_with_Vis_3cls_dark_enhance_rotate_pkiv3.py']
 
 
 pretrained = 'swin_large_patch4_window12_384_22k.pth'  # noqa
@@ -7,10 +7,10 @@ load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_ya
 load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_dual_swin_albu_with_Vis_3cls_drak_enhance_cbpki/0524_pki_5295.pth'
 load_from = 'work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_dual_swin_albu_with_Vis_3cls_drak_enhance_cbpki_rotate/pki_0527_5318.pth'# model settings
 model = dict(
-    type='CoDETR_Dual_Swin',
+    type='CoDETR_Dual_Swin_Neck_pkiv3',
     backbone=dict(
         _delete_=True,
-        type='Dual_SwinTransformer_CBPki',
+        type='Dual_SwinTransformer_CBPkiv3',
         pretrain_img_size=384,
         embed_dims=192,
         depths=[2, 2, 18, 2],
@@ -36,7 +36,7 @@ model = dict(
 
 optim_wrapper = dict(optimizer=dict(lr=1e-4))
 
-max_epochs = 4
+max_epochs = 8
 train_cfg = dict(max_epochs=max_epochs)
 
 param_scheduler = [
@@ -45,7 +45,7 @@ param_scheduler = [
         begin=0,
         end=max_epochs,
         by_epoch=True,
-        milestones=[3],
+        milestones=[6],
         gamma=0.1)
 ]
 

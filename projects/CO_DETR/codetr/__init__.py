@@ -10,7 +10,7 @@ from .codetr_dual_stream_dual_swin_pkiv2 import CoDETR_Dual_Swin_Pkiv2
 from .codetr_dual_stream_dual_swin_neck import CoDETR_Dual_Swin_Neck
 from .transformer import (CoDinoTransformer, DetrTransformerDecoderLayer,
                           DetrTransformerEncoder, DinoTransformerDecoder)
-
+from .codetr_dual_swin_pkiv3 import CoDETR_Dual_Swin_Neck_pkiv3
 __all__ = [
     'CoDETR', 'CoDETR_Dual', 'CoDinoTransformer', 'DinoTransformerDecoder', 'CoDINOHead',
     'CoATSSHead', 'CoStandardRoIHead', 'DetrTransformerEncoder',

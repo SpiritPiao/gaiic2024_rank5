@@ -19,7 +19,7 @@ from mmengine.utils import to_2tuple
 from mmdet.registry import MODELS
 from ..layers import PatchEmbed, PatchMerging
 from .own import DCNV4_YOLO, DCNV4_CSP, PKIOwn, DCNV3_CSP
-from ..layers.pkinet import Stem_Pki, PKIStage_noDown, DownSamplingLayer
+from ..layers.pkinet import Stem_Pki, PKIStage
 class WindowMSA(BaseModule):
     """Window based multi-head self-attention (W-MSA) module with relative
     position bias.
@@ -625,7 +625,6 @@ class Dual_SwinTransformer_CBPkiv3(BaseModule):
         self.stages = ModuleList()
         self.stages1 = ModuleList()
         self.pki_stages = ModuleList()
-        self.pki_down = ModuleList()
 
         # self.dcnv4_tir = ModuleList()
         # self.dcnv4_rgb = ModuleList()
@@ -701,14 +700,12 @@ class Dual_SwinTransformer_CBPkiv3(BaseModule):
                 in_channels_pki = in_channels
             else:
                 in_channels_pki = in_channels // 2
-            stage_pki = PKIStage_noDown(in_channels_pki, in_channels, self.num_blocks_pki[i], (3, 5, 7, 9, 11), (1, 1, 1, 1, 1), 
+            stage_pki = PKIStage(in_channels_pki, in_channels, self.num_blocks_pki[i], (3, 5, 7, 9, 11), (1, 1, 1, 1, 1), 
                                  self.arch_settings[i][0],self.arch_settings[i][1],self.arch_settings[i][2], dropout_rate = self.arch_settings[i][3],
                                   drop_path_rate =  dpr[sum( self.num_blocks_pki[:i]):sum( self.num_blocks_pki[:i + 1])],layer_scale = self.arch_settings[i][4],
                                    shortcut_with_ffn = self.arch_settings[i][5], shortcut_ffn_scale = self.arch_settings[i][6],
                                     shortcut_ffn_kernel_size = self.arch_settings[i][7], norm_cfg = norm_cfg_pki, act_cfg = act_cfg_pki)
             self.pki_stages.append(stage_pki)
-            down_pki = DownSamplingLayer(in_channels_pki, in_channels)
-            self.pki_down.append(down_pki)
 
             if downsample:
                 in_channels = downsample.out_channels
@@ -848,24 +845,15 @@ class Dual_SwinTransformer_CBPkiv3(BaseModule):
         x_tir = self.drop_after_pos1(x_tir)
 
         outs = []
-
+        outs2 = []
+        # add_out_tir = x_tir.view(-1, *hw_shape_tir, 192).permute(0, 3, 1, 2).contiguous()
+        # x_tir_pki = x_tir_pki + add_out_tir
         for i, stage in enumerate(self.stages):
             stage1 = self.stages1[i]
             stage_pki = self.pki_stages[i]
-            stage_pki = self.pki_stages[i]
-            down_pki = self.pki_down[i]
-
-            x_tir_pki = down_pki(x_tir_pki)
-            x_tir_pki = stage_pki(x_tir_pki)
-            add_out_tir = x_tir.view(-1, *hw_shape_tir, self.num_features[i]).permute(0, 3, 1, 2).contiguous()
-            add_out_tir = x_tir_pki + add_out_tir
-        
-            x_tir = add_out_tir.flatten(2).transpose(1, 2)
-
-
             x_rgb, hw_shape_rgb, out_rgb, out_hw_shape_rgb = stage(x_rgb, hw_shape_rgb)
             x_tir, hw_shape_tir, out_tir, out_hw_shape_tir = stage1(x_tir, hw_shape_tir)
-
+            x_tir_pki = stage_pki(x_tir_pki)
 
 
             if i in self.out_indices:
@@ -879,8 +867,7 @@ class Dual_SwinTransformer_CBPkiv3(BaseModule):
                 out_tir = out_tir.view(-1, *out_hw_shape_tir,
                     self.num_features[i]).permute(0, 3, 1,
                                                 2).contiguous()
-                # out_tir_pki = x_tir_pki
-                # out_tir = x_tir_pki + out_tir
+                out_tir = x_tir_pki + out_tir
                 
                 eaef = False
                 if eaef:
@@ -892,12 +879,15 @@ class Dual_SwinTransformer_CBPkiv3(BaseModule):
                     # out_tir = out_tir + out_rgb1
                     
                     out = out_rgb + out_tir
+                    out2 = out_rgb + x_tir_pki
+
                     # if i == 0:
                     #     out = self.dcnv4(out)
 
                 outs.append(out)
+                outs2.append(out2)
 
-        return outs
+        return outs, outs2
 
 
 def swin_converter(ckpt):
