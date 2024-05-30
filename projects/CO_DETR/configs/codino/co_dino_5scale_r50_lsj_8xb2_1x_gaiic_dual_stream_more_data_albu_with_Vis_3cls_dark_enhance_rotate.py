@@ -541,7 +541,7 @@ dict(
 
 img_scales = [(640, 640), (320, 320), (960, 960)]
 img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
-img_scales = [(1024, 1024)]
+img_scales = [(1024, 1024),(1280, 1280)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),

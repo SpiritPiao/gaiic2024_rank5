@@ -472,27 +472,27 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
-    # outfile_prefix='./VisDrone2019'
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
-)
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
+#     # outfile_prefix='./VisDrone2019'
+#     ann_file=data_root + 'instances_test2017.json',
+#     outfile_prefix='./dual_test_result'
+# )
 
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root = data_root,
-        # data_root='/root/workspace/data/Visdrone/',
-        # ann_file='orin_text/5cls/train.json',
-        # data_prefix=dict(img='train/rgb'),
+# test_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         data_root = data_root,
+#         # data_root='/root/workspace/data/Visdrone/',
+#         # ann_file='orin_text/5cls/train.json',
+#         # data_prefix=dict(img='train/rgb'),
         
-        ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
+#         ann_file='instances_test2017.json',
+#         data_prefix=dict(img='test/rgb'),
+#         pipeline=test_pipeline))
 
 
 optim_wrapper = dict(

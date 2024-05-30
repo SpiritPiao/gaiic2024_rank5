@@ -112,11 +112,16 @@ class CoDINOHead(DINOHead):
                 dn_label_query=None,
                 dn_bbox_query=None,
                 attn_mask=None):
+        # print(len(mlvl_feats))
+        # for i in mlvl_feats:
+            # print(i.shape)
+        # print(mlvl_feats[1].shape)
         batch_size = mlvl_feats[0].size(0)
         input_img_h, input_img_w = img_metas[0]['batch_input_shape']
         img_masks = mlvl_feats[0].new_ones(
             (batch_size, input_img_h, input_img_w))
         for img_id in range(batch_size):
+            # print(img_id)
             img_h, img_w = img_metas[img_id]['img_shape']
             img_masks[img_id, :img_h, :img_w] = 0
 

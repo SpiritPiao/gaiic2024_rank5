@@ -22,28 +22,23 @@ data_root = '/root/workspace/data/GAIIC2024/'
 data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
+load_from = '/root/workspace/data/dual_mmdetection/mmdetection/co_dino_5scale_vit_large_coco.pth'
 
-image_size = (1024, 1024)
-image_size = (1024, 1024)
+image_size = (1536, 1536)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
 batch_augments = [
     dict(type='BatchFixedSizePad', size=image_size)
 ]
+residual_block_indexes = []
 
 # model settings
 num_dec_layer = 6
 loss_lambda = 2.0
 
 model = dict(
-    type='CoDETR_Dual_Reg',
-    # If using the lsj augmentation,
-    # it is recommended to set it to True.
-    use_lsj=True,
-    # detr: 52.1
-    # one-stage: 49.4
-    # two-stage: 47.9
+    type='CoDETR_Dual',
     eval_module='detr',  # in ['detr', 'one-stage', 'two-stage']
     data_preprocessor=dict(
         type='DoubleInputDetDataPreprocessor',
@@ -53,52 +48,73 @@ model = dict(
         pad_mask=True,
         batch_augments=batch_augments),
     backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=4,
-        out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=False),
-        norm_eval=True,
-        style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
-    neck=dict(
-        type='ChannelMapper',
-        in_channels=[256, 512, 1024, 2048],
-        kernel_size=1,
+        type='ViT',
+        img_size=1536,
+        pretrain_img_size=512,
+        patch_size=16,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4*2/3,
+        drop_path_rate=0.4,
+        window_size=24,
+        window_block_indexes=window_block_indexes,
+        residual_block_indexes=residual_block_indexes,
+        qkv_bias=True,
+        use_act_checkpoint=True,
+        init_cfg=None),
+    neck=dict(        
+        type='SFP',
+        in_channels=[1024],        
         out_channels=256,
-        act_cfg=None,
-        norm_cfg=dict(type='GN', num_groups=32),
-        num_outs=5),
+        num_outs=5,
+        use_p2=True,
+        use_act_checkpoint=False),
+    rpn_head=dict(
+        type='RPNHead',
+        in_channels=256,
+        feat_channels=256,
+        anchor_generator=dict(
+            type='AnchorGenerator',
+            octave_base_scale=4,
+            scales_per_octave=3,
+            ratios=[0.5, 1.0, 2.0],
+            strides=[4, 8, 16, 32, 64, 128]),
+        bbox_coder=dict(
+            type='DeltaXYWHBBoxCoder',
+            target_means=[.0, .0, .0, .0],
+            target_stds=[1.0, 1.0, 1.0, 1.0]),
+        loss_cls=dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0*num_dec_layer*lambda_2),
+        loss_bbox=dict(type='L1Loss', loss_weight=1.0*num_dec_layer*lambda_2)),
     query_head=dict(
         type='CoDINOHead',
-        num_query=900,
-        num_classes=num_classes,
+        num_query=1500,
+        num_classes=80,
+        num_feature_levels=5,
         in_channels=2048,
+        sync_cls_avg_factor=True,
         as_two_stage=True,
+        with_box_refine=True,
+        mixed_selection=True,
         dn_cfg=dict(
-            label_noise_scale=0.5,
-            box_noise_scale=1.0,
-            group_cfg=dict(dynamic=True, num_groups=None, num_dn_queries=100)),
+            type='CdnQueryGenerator',
+            noise_scale=dict(label=0.5, box=0.4),  # 0.5, 0.4 for DN-DETR
+            group_cfg=dict(dynamic=True, num_groups=None, num_dn_queries=300)),
         transformer=dict(
             type='CoDinoTransformer',
+            with_pos_coord=True,
             with_coord_feat=False,
-            num_co_heads=2,  # ATSS Aux Head + Faster RCNN Aux Head
+            num_co_heads=2,
             num_feature_levels=5,
             encoder=dict(
                 type='DetrTransformerEncoder',
                 num_layers=6,
-                # number of layers that use checkpoint.
-                # The maximum value for the setting is num_layers.
-                # FairScale must be installed for it to work.
-                with_cp=4,
+                with_cp=6, # number of layers that use checkpoint
                 transformerlayers=dict(
                     type='BaseTransformerLayer',
                     attn_cfgs=dict(
-                        type='MultiScaleDeformableAttention',
-                        embed_dims=256,
-                        num_levels=5,
-                        dropout=0.0),
+                        type='MultiScaleDeformableAttention', embed_dims=256, num_levels=5, dropout=0.0),
                     feedforward_channels=2048,
                     ffn_dropout=0.0,
                     operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
@@ -129,104 +145,73 @@ model = dict(
             num_feats=128,
             temperature=20,
             normalize=True),
-        loss_cls=dict(  # Different from the DINO
+        loss_cls=dict(
             type='QualityFocalLoss',
             use_sigmoid=True,
             beta=2.0,
             loss_weight=1.0),
         loss_bbox=dict(type='L1Loss', loss_weight=5.0),
         loss_iou=dict(type='GIoULoss', loss_weight=2.0)),
-    rpn_head=dict(
-        type='RPNHead',
+    roi_head=[dict(
+        type='CoStandardRoIHead',
+        bbox_roi_extractor=dict(
+            type='SingleRoIExtractor',
+            roi_layer=dict(type='RoIAlign', output_size=7, sampling_ratio=0),
+            out_channels=256,
+            featmap_strides=[4, 8, 16, 32, 64],
+            finest_scale=56),
+        bbox_head=dict(
+            type='ConvFCBBoxHead',
+            num_shared_convs=4,
+            num_shared_fcs=1,
+            in_channels=256,
+            conv_out_channels=256,
+            fc_out_channels=1024,
+            roi_feat_size=7,
+            num_classes=80,
+            bbox_coder=dict(
+                type='DeltaXYWHBBoxCoder',
+                target_means=[0., 0., 0., 0.],
+                target_stds=[0.05, 0.05, 0.1, 0.1]),
+            reg_class_agnostic=True,
+            reg_decoded_bbox=True,
+            norm_cfg=dict(type='GN', num_groups=32),
+            loss_cls=dict(
+                type='CrossEntropyLoss', use_sigmoid=False, loss_weight=1.0*num_dec_layer*lambda_2),
+            loss_bbox=dict(type='GIoULoss', loss_weight=10.0*num_dec_layer*lambda_2)))],
+    bbox_head=[dict(
+        type='CoATSSHead',
+        num_classes=80,
         in_channels=256,
+        stacked_convs=1,
         feat_channels=256,
         anchor_generator=dict(
             type='AnchorGenerator',
-            octave_base_scale=4,
-            scales_per_octave=3,
-            ratios=[0.5, 1.0, 2.0],
+            ratios=[1.0],
+            octave_base_scale=8,
+            scales_per_octave=1,
             strides=[4, 8, 16, 32, 64, 128]),
         bbox_coder=dict(
             type='DeltaXYWHBBoxCoder',
             target_means=[.0, .0, .0, .0],
-            target_stds=[1.0, 1.0, 1.0, 1.0]),
+            target_stds=[0.1, 0.1, 0.2, 0.2]),
         loss_cls=dict(
-            type='CrossEntropyLoss',
+            type='FocalLoss',
             use_sigmoid=True,
-            loss_weight=1.0 * num_dec_layer * loss_lambda),
-        loss_bbox=dict(
-            type='L1Loss', loss_weight=1.0 * num_dec_layer * loss_lambda)),
-    roi_head=[
-        dict(
-            type='CoStandardRoIHead',
-            bbox_roi_extractor=dict(
-                type='SingleRoIExtractor',
-                roi_layer=dict(
-                    type='RoIAlign', output_size=7, sampling_ratio=0),
-                out_channels=256,
-                featmap_strides=[4, 8, 16, 32, 64],
-                finest_scale=56),
-            bbox_head=dict(
-                type='Shared2FCBBoxHead',
-                in_channels=256,
-                fc_out_channels=1024,
-                roi_feat_size=7,
-                num_classes=num_classes,
-                bbox_coder=dict(
-                    type='DeltaXYWHBBoxCoder',
-                    target_means=[0., 0., 0., 0.],
-                    target_stds=[0.1, 0.1, 0.2, 0.2]),
-                reg_class_agnostic=False,
-                reg_decoded_bbox=True,
-                loss_cls=dict(
-                    type='CrossEntropyLoss',
-                    use_sigmoid=False,
-                    loss_weight=1.0 * num_dec_layer * loss_lambda),
-                loss_bbox=dict(
-                    type='GIoULoss',
-                    loss_weight=10.0 * num_dec_layer * loss_lambda)))
-    ],
-    bbox_head=[
-        dict(
-            type='CoATSSHead',
-            num_classes=num_classes,
-            in_channels=256,
-            stacked_convs=1,
-            feat_channels=256,
-            anchor_generator=dict(
-                type='AnchorGenerator',
-                ratios=[1.0],
-                octave_base_scale=8,
-                scales_per_octave=1,
-                strides=[4, 8, 16, 32, 64, 128]),
-            bbox_coder=dict(
-                type='DeltaXYWHBBoxCoder',
-                target_means=[.0, .0, .0, .0],
-                target_stds=[0.1, 0.1, 0.2, 0.2]),
-            loss_cls=dict(
-                type='FocalLoss',
-                use_sigmoid=True,
-                gamma=2.0,
-                alpha=0.25,
-                loss_weight=1.0 * num_dec_layer * loss_lambda),
-            loss_bbox=dict(
-                type='GIoULoss',
-                loss_weight=2.0 * num_dec_layer * loss_lambda),
-            loss_centerness=dict(
-                type='CrossEntropyLoss',
-                use_sigmoid=True,
-                loss_weight=1.0 * num_dec_layer * loss_lambda)),
-    ],
+            gamma=2.0,
+            alpha=0.25,
+            loss_weight=1.0*num_dec_layer*lambda_2),
+        loss_bbox=dict(type='GIoULoss', loss_weight=2.0*num_dec_layer*lambda_2),
+        loss_centerness=dict(
+            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0*num_dec_layer*lambda_2)),],
     # model training and testing settings
     train_cfg=[
         dict(
             assigner=dict(
                 type='HungarianAssigner',
-                match_costs=[
-                    dict(type='FocalLossCost', weight=2.0),
-                    dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
-                    dict(type='IoUCost', iou_mode='giou', weight=2.0)
-                ])),
+                cls_cost=dict(type='FocalLossCost', weight=2.0),
+                reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
+                iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0))),
         dict(
             rpn=dict(
                 assigner=dict(
@@ -270,30 +255,27 @@ model = dict(
             assigner=dict(type='ATSSAssigner', topk=9),
             allowed_border=-1,
             pos_weight=-1,
-            debug=False)
-    ],
+            debug=False),],
     test_cfg=[
-        # Deferent from the DINO, we use the NMS.
         dict(
-            max_per_img=300,
-            # NMS can improve the mAP by 0.2.
+            max_per_img=1000,
             nms=dict(type='soft_nms', iou_threshold=0.8)),
         dict(
             rpn=dict(
-                nms_pre=1000,
-                max_per_img=1000,
-                nms=dict(type='nms', iou_threshold=0.7),
+                nms_pre=8000,
+                max_per_img=2000,
+                nms=dict(type='nms', iou_threshold=0.9),
                 min_bbox_size=0),
             rcnn=dict(
                 score_thr=0.0,
-                nms=dict(type='nms', iou_threshold=0.5),
-                max_per_img=100)),
+                mask_thr_binary=0.5,
+                nms=dict(type='soft_nms', iou_threshold=0.5),
+                max_per_img=1000)),
         dict(
-            # atss bbox head:
             nms_pre=1000,
             min_bbox_size=0,
             score_thr=0.0,
-            nms=dict(type='nms', iou_threshold=0.6),
+            nms=dict(type='soft_nms', iou_threshold=0.6),
             max_per_img=100),
         # soft-nms is also supported for rcnn testing
         # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
@@ -307,7 +289,7 @@ model = dict(
 #     # dict(type='ToGray', p=0.01),
 #     # dict(type='CLAHE', p=0.01)
 # ]
-# LSJ + CopyPaste
+
 load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
@@ -317,7 +299,7 @@ load_pipeline = [
         prob=0.1,
         # level=0,
         # min_mag=90.0,
-        # max_mag=180.0,
+        max_mag=180.0,
         # reversal_prob=1.,
     ),
     # dict(type='Bright', prob = 1),
@@ -365,7 +347,6 @@ load_pipeline = [
 
 train_pipeline = load_pipeline + [
     # dict(type='CopyPaste', max_num_pasted=100),
-    
     dict(type='DoublePackDetInputs')
 ]
 
@@ -382,7 +363,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=2, num_workers=1, 
+        batch_size=1, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -390,7 +371,8 @@ train_dataloader = dict(
             data_root=data_root,
             ann_file='merged_coco_new_vis_3cls.json',
             data_prefix=dict(img='train_with_Vis_3cls/rgb'),
-            pipeline=train_pipeline
+            pipeline=train_pipeline,
+            filter_empty_gt=False, 
         )
     )
 
@@ -423,7 +405,7 @@ val_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
     # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
-    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    # dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
     
 
     dict(type='Branch',
@@ -493,17 +475,18 @@ test_dataloader = dict(dataset=dict(
         ann_file='instances_test2017.json',
         data_prefix=dict(img='test/rgb'),
         pipeline=test_pipeline))
+dist_params = dict(backend='nccl')
 
 
-optim_wrapper = dict(
-    _delete_=True,
-    type='OptimWrapper',
-    optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
-    clip_grad=dict(max_norm=0.1, norm_type=2),
-    paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
+# optim_wrapper = dict(
+#     _delete_=True,
+#     type='OptimWrapper',
+#     optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
+#     clip_grad=dict(max_norm=0.1, norm_type=2),
+#     paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
 
 
-max_epochs = 12
+max_epochs = 16
 train_cfg = dict(
     _delete_=True,
     type='EpochBasedTrainLoop',
@@ -519,6 +502,27 @@ param_scheduler = [
         milestones=[11],
         gamma=0.1)
 ]
+
+
+# learning policy
+lr_config = dict(
+    policy='step',
+    warmup='linear',
+    warmup_iters=500,
+    warmup_ratio=0.01,
+    step=[9, 15])
+runner = dict(type='EpochBasedRunner', max_epochs=max_epochs)
+
+# optimizer
+# We use layer-wise learning rate decay, but it has not been implemented.
+optimizer = dict(
+    type='AdamW',
+    lr=5e-5,
+    weight_decay=0.05,
+    # custom_keys of sampling_offsets and reference_points in DeformDETR
+    paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.1)}))
+
+
 
 default_hooks = dict(
     checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=7))
@@ -541,7 +545,7 @@ dict(
 
 img_scales = [(640, 640), (320, 320), (960, 960)]
 img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
-img_scales = [(1024, 1024)]
+img_scales = [(1024, 1024),(1280, 1280)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),

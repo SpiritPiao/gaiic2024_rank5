@@ -8,6 +8,7 @@ from .codetr_dual_stream_backbone import CoDETR_Dual_Backbone
 from .codetr_dual_stream_dual_swin import CoDETR_Dual_Swin
 from .codetr_dual_stream_dual_swin_pkiv2 import CoDETR_Dual_Swin_Pkiv2
 from .codetr_dual_stream_dual_swin_neck import CoDETR_Dual_Swin_Neck
+from .codetr_dual_stream_dual_swin_cbswin import CoDETR_Dual_Swin_CBSwin
 from .transformer import (CoDinoTransformer, DetrTransformerDecoderLayer,
                           DetrTransformerEncoder, DinoTransformerDecoder)
 from .codetr_dual_swin_pkiv3 import CoDETR_Dual_Swin_Neck_pkiv3

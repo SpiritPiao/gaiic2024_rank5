@@ -128,7 +128,7 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = True
+                copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
@@ -459,8 +459,8 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
 
         batch_data_samples = self.add_pred_to_datasample(
             batch_data_samples, results_list)
-        batch_data_samples = self.add_pred_to_datasample(
-            batch_data_samples, results_list_tir)
+        # batch_data_samples = self.add_pred_to_datasample(
+        #     batch_data_samples, results_list_tir)
         return batch_data_samples
 
     def predict_query_head(self,

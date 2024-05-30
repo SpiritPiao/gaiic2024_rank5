@@ -3,9 +3,6 @@ _base_ = 'mmdet::common/ssj_270k_coco-instance.py'
 
 
 ## Custom ##
-# from .my_loading import LoadImageFromFile2
-# from .my_wrapper import Image2Broadcaster, Branch
-# from .my_formatting import DoublePackDetInputs
 custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.datasets.transforms.my_loading',
                                'mmdet.datasets.transforms.my_wrapper',
@@ -13,7 +10,11 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
                                'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.datasets.my_coco',
-                               'projects.CO_DETR.codetr'
+                               'projects.CO_DETR.codetr',
+                               'projects.DINOv2.dino_v2',
+                               'projects.DINOv2.simple_fpn',
+                               'projects.DINOv2.fp16_compression_hook',
+                               'projects.DINOv2.layer_decay_optimizer_constructor',
                                ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
@@ -24,20 +25,20 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
-image_size = (1024, 1024)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
 batch_augments = [
     dict(type='BatchFixedSizePad', size=image_size)
 ]
+norm_cfg = dict(type='LN2d', requires_grad=True)
 
 # model settings
 num_dec_layer = 6
 loss_lambda = 2.0
 
 model = dict(
-    type='CoDETR_Dual_Reg',
+    type='CoDETR_Dual',
     # If using the lsj augmentation,
     # it is recommended to set it to True.
     use_lsj=True,
@@ -53,23 +54,35 @@ model = dict(
         pad_mask=True,
         batch_augments=batch_augments),
     backbone=dict(
-        type='ResNet',
-        depth=50,
-        num_stages=4,
-        out_indices=(0, 1, 2, 3),
-        frozen_stages=1,
-        norm_cfg=dict(type='BN', requires_grad=False),
-        norm_eval=True,
-        style='pytorch',
-        init_cfg=dict(type='Pretrained', checkpoint='torchvision://resnet50')),
+        # _delete_=True,
+        type='DINOv2',
+        img_size=image_size,
+        patch_size=14,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        drop_path_rate=0.1,
+        window_size=37,
+        mlp_ratio=4,
+        qkv_bias=True,
+        norm_cfg=dict(type='LN'),
+        window_block_indexes=[
+            0, 1, 3, 4, 6, 7, 9, 10
+        ],  # global attention for 2, 5, 8, 11
+        use_rel_pos=True,
+        init_cfg=dict(
+            type='Pretrained',
+            checkpoint='vit-base-p14_dinov2-pre_3rdparty_20230426-ba246503.pth'
+             )),  # TODO: add checkpoint
     neck=dict(
-        type='ChannelMapper',
-        in_channels=[256, 512, 1024, 2048],
-        kernel_size=1,
+        # _delete_=True,
+        type='SimpleFPN',
+        backbone_channel=768,
+        in_channels=[192, 384, 768, 768],
         out_channels=256,
-        act_cfg=None,
-        norm_cfg=dict(type='GN', num_groups=32),
-        num_outs=5),
+        num_outs=5,
+        norm_cfg=norm_cfg,
+    ),
     query_head=dict(
         type='CoDINOHead',
         num_query=900,
@@ -312,16 +325,8 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(
-        type='Rotate',
-        prob=0.1,
-        # level=0,
-        # min_mag=90.0,
-        # max_mag=180.0,
-        # reversal_prob=1.,
-    ),
     # dict(type='Bright', prob = 1),
-    dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
+    dict(type='RandDarkMask', prob=0.2, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
     dict(type='Albumentation', prob = 1),
 
@@ -330,7 +335,7 @@ load_pipeline = [
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
-
+    
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
 
@@ -345,7 +350,7 @@ load_pipeline = [
                     ratio_range=(0.1, 2.0),
                     keep_ratio=True),
                 dict(
-                    type='RandomCrop',
+                    type='RandomCropX',
                     crop_type='absolute_range',
                     crop_size=image_size,
                     recompute_bbox=True,
@@ -382,7 +387,7 @@ train_pipeline = load_pipeline + [
 # )
 
 train_dataloader = dict(
-        batch_size=2, num_workers=1, 
+        batch_size=1, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
@@ -447,15 +452,10 @@ val_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
 #     ann_file=data_root_vis + 'annotations/test_tir.json')
-val_dataloader = dict(
-    persistent_workers=True,
-    drop_last=False,
-    sampler=dict(type='DefaultSampler', shuffle=False),
-    dataset=dict(
+val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
         data_root=data_root_vis,
-        test_mode=True,
         ann_file='val.json',
         data_prefix=dict(img='images/val/rgb'),
         pipeline=val_pipeline))
@@ -495,12 +495,6 @@ test_dataloader = dict(dataset=dict(
         pipeline=test_pipeline))
 
 
-optim_wrapper = dict(
-    _delete_=True,
-    type='OptimWrapper',
-    optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
-    clip_grad=dict(max_norm=0.1, norm_type=2),
-    paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
 
 
 max_epochs = 12
@@ -545,23 +539,30 @@ img_scales = [(1024, 1024)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),
-    dict(type='CLAHE', prob = 1),
-    # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
-    # dict(type='Bright', prob = 1),
+    # dict(type='CLAHE', prob = 1),
+    dict(type='Bright', prob = 1),
     dict(
         type='TestTimeAug',
         transforms=[
-            # [
-            #     dict(
-            #         type='Branch',
-            #         transforms=[dict(type='RandDarkMask', prob=1, dark_channel_prob=1)]
-            #     ),
-            #     dict(
-            #         type='Branch',
-            #         transforms=[dict(type='RandDarkMask', prob=0, dark_channel_prob=1)]
-            #     ),
-                
-            # ],
+            [
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='CLAHE', prob = 1)]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='CLAHE', prob = 0)]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='CLAHE', prob = 1, size = 16)]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='CLAHE', prob = 1, size = 32)]
+                )
+            ],
+
             [
                 dict(
                     type='Branch',
@@ -604,3 +605,41 @@ tta_pipeline = [
             ]
         ])
 ]
+
+custom_hooks = [dict(type='Fp16CompresssionHook')]
+
+# Ori
+# optim_wrapper = dict(
+#     _delete_=True,
+#     type='OptimWrapper',
+#     optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
+#     clip_grad=dict(max_norm=0.1, norm_type=2),
+#     paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
+
+
+# CoDETR official
+# optimizer
+# We use layer-wise learning rate decay, but it has not been implemented.
+optimizer = dict(
+    type='AdamW',
+    lr=5e-5,
+    weight_decay=0.05,
+    # custom_keys of sampling_offsets and reference_points in DeformDETR
+    paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.1)}))
+
+# DetVit
+# optim_wrapper = dict(
+#     _delete_=True,
+#     type='AmpOptimWrapper',
+#     constructor='LayerDecayOptimizerConstructor',
+#     paramwise_cfg={
+#         'decay_rate': 0.7,
+#         'decay_type': 'layer_wise',
+#         'num_layers': 12,
+#     },
+#     optimizer=dict(
+#         type='AdamW',
+#         lr=0.0001,
+#         weight_decay=0.0001,
+#         paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}),
+#     ))
