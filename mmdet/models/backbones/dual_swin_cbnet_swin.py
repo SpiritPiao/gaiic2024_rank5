@@ -859,6 +859,7 @@ class Dual_SwinTransformer_CBSwin(BaseModule):
         x_tir2 = self.drop_after_pos2(x_tir2)
 
         outs = []
+
         # add_out_tir = x_tir.view(-1, *hw_shape_tir, 192).permute(0, 3, 1, 2).contiguous()
         # x_tir_pki = x_tir_pki + add_out_tir
         for i, stage in enumerate(self.stages):
@@ -868,6 +869,7 @@ class Dual_SwinTransformer_CBSwin(BaseModule):
             x_tir2, hw_shape_tir2, out_tir2, out_hw_shape_tir2 = stage2(x_tir2, hw_shape_tir2)
             x_tir = x_tir + out_tir2
             x_tir, hw_shape_tir, out_tir, out_hw_shape_tir = stage1(x_tir, hw_shape_tir)
+            x_tir = x_tir + x_tir2
             
 
             if i in self.out_indices:
@@ -902,6 +904,7 @@ class Dual_SwinTransformer_CBSwin(BaseModule):
                     #     out = self.dcnv4(out)
 
                 outs.append(out)
+
 
         return outs
 

@@ -317,24 +317,23 @@ load_pipeline = [
         prob=0.1,
         # level=0,
         # min_mag=90.0,
-        max_mag=180.0,
+        # max_mag=180.0,
         # reversal_prob=1.,
     ),
     # dict(type='Bright', prob = 1),
     dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
     dict(type='Albumentation', prob = 1),
+    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
     # dict(type='Cache_Mixup', prob = 0.1),
 
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
-
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
 
-    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
 
     dict(type='Image2Broadcaster',
@@ -392,7 +391,8 @@ train_dataloader = dict(
             data_prefix=dict(img='train_with_Vis_3cls/rgb'),
             pipeline=train_pipeline
         )
-    )
+   )
+
 
 # follow ViTDet
 test_pipeline = [
@@ -541,7 +541,7 @@ dict(
 
 img_scales = [(640, 640), (320, 320), (960, 960)]
 img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
-img_scales = [(1024, 1024),(1280, 1280)]
+img_scales = [(1024, 1024)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),

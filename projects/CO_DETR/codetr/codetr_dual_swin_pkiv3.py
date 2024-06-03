@@ -122,22 +122,64 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
         ori_backbone_params = []
         ori_backbone_key = []
         for k, v in state_dict.items():
-            # if k.startswith("backbone.layer1")  and "layer1_t" not in k:
             if ("neck." in k and "neck2."  not in k) or ("query_head" in k and " query_head_tir"  not in k) \
             or ("rpn_head." in k and "rpn_head_tir."  not in k) or ("roi_head.0" in k and "roi_head_tir.0"  not in k) or ("bbox_head.0" in k and "bbox_head_tir.0"  not in k):
+            # ("backbone1.patch_embed1" in k and "backbone1.patch_embed2" not in k) or  ("backbone1.stages1" in k and "backbone1.stages2" not in k) or ("backbone1.tir_norm" in k and "backbone1.tir2_norm"  not in k ) \
+            # or 
+            
+
+
+            # if ("backbone.patch_embed" in k and "backbone1.patch_embed1" not in k) or  ("backbone.stages" in k and "backbone1.stages1" not in k) or ("backbone.norm" in k and "backbone1.tir_norm"  not in k ) \
+            # or ("backbone.patch_embed" in k and "backbone1.patch_embed" not in k) or  ("backbone.stages" in k and "backbone1.stages" not in k) or ("backbone.norm" in k and "backbone1.norm"  not in k ) \
+            # or ("backbone.patch_embed" in k and "backbone1.patch_embed2" not in k) or  ("backbone.stages" in k and "backbone1.stages2" not in k) or ("backbone.norm" in k and "backbone1.tir2_norm"  not in k ) \
+            # or ("neck." in k and "neck2."  not in k) or ("query_head" in k and " query_head_tir"  not in k) \
+            # or ("rpn_head." in k and "rpn_head_tir."  not in k) or ("roi_head.0" in k and "roi_head_tir.0"  not in k) or ("bbox_head.0" in k and "bbox_head_tir.0"  not in k):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = False
+                copy_ori = True
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
-                # state_dict[k] = v
+                state_dict[k] = v
+                # state_dict[k.replace("backbone1.patch_embed1", "backbone1.patch_embed2")] = copy.deepcopy(v)
+
+
+                # state_dict[k.replace("backbone1.stages1", "backbone1.stages2")] = copy.deepcopy(v)
+
+
+                # state_dict[k.replace("backbone1.tir_norm" , "backbone1.tir2_norm")] = copy.deepcopy(v)
+
+
                 state_dict[k.replace("neck." , "neck2.")] = copy.deepcopy(v)
                 state_dict[k.replace("query_head." , "query_head_tir.")] = copy.deepcopy(v)
                 state_dict[k.replace("rpn_head." , "rpn_head_tir.")] = copy.deepcopy(v)
                 state_dict[k.replace("roi_head.0" , "roi_head_tir.0")] = copy.deepcopy(v)
                 state_dict[k.replace("bbox_head.0" , "bbox_head_tir.0")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone1.patch_embed")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone1.patch_embed1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone1.patch_embed2")] = copy.deepcopy(v)
+
+                # state_dict[k.replace("backbone.stages", "backbone1.stages")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.stages", "backbone1.stages1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.stages", "backbone1.stages2")] = copy.deepcopy(v)
+
+                # state_dict[k.replace("backbone.norm" , "backbone1.norm")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.norm" , "backbone1.tir_norm")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.norm" , "backbone1.tir2_norm")] = copy.deepcopy(v)
+
+                # state_dict[k.replace("neck." , "neck2.")] = copy.deepcopy(v)
+                # state_dict[k.replace("query_head." , "query_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("rpn_head." , "rpn_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("roi_head.0" , "roi_head_tir.0")] = copy.deepcopy(v)
+                # state_dict[k.replace("bbox_head.0" , "bbox_head_tir.0")] = copy.deepcopy(v)
+                # del state_dict[k]
+                # state_dict[k] = v
+                # state_dict[k.replace("neck." , "neck2.")] = copy.deepcopy(v)
+                # state_dict[k.replace("query_head." , "query_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("rpn_head." , "rpn_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("roi_head.0" , "roi_head_tir.0")] = copy.deepcopy(v)
+                # state_dict[k.replace("bbox_head.0" , "bbox_head_tir.0")] = copy.deepcopy(v)
                 # del state_dict[k]
             # Force set the strict to "False"
             strict = True
@@ -266,6 +308,7 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
 
     def loss(self, batch_inputs: Tensor, batch_inputs2: Tensor,
              batch_data_samples: SampleList) -> Union[dict, list]:
+        aux = 0.5
         
         batch_input_shape = batch_data_samples[0].batch_input_shape
         if self.use_lsj:
@@ -298,6 +341,8 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                     bbox_losses_tir[f'tir_{key}'] = bbox_losses_tir.pop(key)
 
             losses.update(bbox_losses)
+            for key in bbox_losses_tir:
+                bbox_losses_tir[key]  = bbox_losses_tir[key] * aux
             losses.update(bbox_losses_tir)
 
         # RPN forward and loss
@@ -335,6 +380,9 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                     rpn_losses_tir[f'tir_{key}'] = rpn_losses_tir.pop(key)
 
             losses.update(rpn_losses)
+            for key in rpn_losses_tir:
+                for i in range(len(rpn_losses_tir[key])):
+                    rpn_losses_tir[key][i]  = rpn_losses_tir[key][i] * aux
             losses.update(rpn_losses_tir)
         else:
             assert batch_data_samples[0].get('proposals', None) is not None
@@ -364,6 +412,8 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                 if 'tir' not in key:
                     roi_losses_tir[f'tir_{key}'] = roi_losses_tir.pop(key)
             losses.update(roi_losses)
+            for key in roi_losses_tir:
+                roi_losses_tir[key]  = roi_losses_tir[key] * aux
             losses.update(roi_losses_tir)
 
         for i in range(len(self.bbox_head)):
@@ -384,6 +434,9 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                 if 'loss' in key and 'tir' not in key:
                     bbox_losses_tir[f'tir_{key}'] = bbox_losses_tir.pop(key)
             losses.update(bbox_losses)
+            for key in bbox_losses_tir:
+                for i in range(len(bbox_losses_tir[key])):
+                    bbox_losses_tir[key][i]  = bbox_losses_tir[key][i] * aux
             losses.update(bbox_losses_tir)
 
         if self.with_pos_coord and len(positive_coords) > 0:
@@ -401,6 +454,8 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                     if 'loss' in key and 'tir' not in key:
                         bbox_losses_tir[f'tir_{key}'] = bbox_losses_tir.pop(key)
                 bbox_losses_tir = upd_loss(bbox_losses_tir, idx=i)
+                for key in bbox_losses_tir:
+                    bbox_losses_tir[key]  = bbox_losses_tir[key] * aux
                 losses.update(bbox_losses_tir)
 
         return losses
@@ -454,13 +509,13 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
         else:
             results_list = self.predict_query_head(
                 img_feats, batch_data_samples, rescale=rescale)
-            results_list_tir = self.predict_query_head(
-                img_feats_tir, batch_data_samples, rescale=rescale)
+            # results_list_tir = self.predict_query_head_tir(
+            #     img_feats_tir, batch_data_samples, rescale=rescale)
 
         batch_data_samples = self.add_pred_to_datasample(
             batch_data_samples, results_list)
-        # batch_data_samples = self.add_pred_to_datasample(
-        #     batch_data_samples, results_list_tir)
+        # batch_data_samples = self.add_pred_to_datasample_add(
+        #     batch_data_samples, results_list, results_list_tir)
         return batch_data_samples
 
     def predict_query_head(self,
@@ -468,6 +523,12 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                            batch_data_samples: SampleList,
                            rescale: bool = True) -> InstanceList:
         return self.query_head.predict(
+            mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
+    def predict_query_head_tir(self,
+                           mlvl_feats: Tuple[Tensor],
+                           batch_data_samples: SampleList,
+                           rescale: bool = True) -> InstanceList:
+        return self.query_head_tir.predict(
             mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
 
     def predict_roi_head(self,

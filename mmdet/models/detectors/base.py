@@ -154,3 +154,35 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
             data_sample.pred_instances = pred_instances
         samplelist_boxtype2tensor(data_samples)
         return data_samples
+    def add_pred_to_datasample_add(self, data_samples: SampleList,
+                               results_list: InstanceList, results_list_tir: InstanceList) -> SampleList:
+        """Add predictions to `DetDataSample`.
+
+        Args:
+            data_samples (list[:obj:`DetDataSample`], optional): A batch of
+                data samples that contain annotations and predictions.
+            results_list (list[:obj:`InstanceData`]): Detection results of
+                each image.
+
+        Returns:
+            list[:obj:`DetDataSample`]: Detection results of the
+            input images. Each DetDataSample usually contain
+            'pred_instances'. And the ``pred_instances`` usually
+            contains following keys.
+
+                - scores (Tensor): Classification scores, has a shape
+                    (num_instance, )
+                - labels (Tensor): Labels of bboxes, has a shape
+                    (num_instances, ).
+                - bboxes (Tensor): Has a shape (num_instances, 4),
+                    the last dimension 4 arrange as (x1, y1, x2, y2).
+        """
+        for data_sample, pred_instances, pred_instances_tir in zip(data_samples, results_list, results_list_tir):
+            pred_instances_more = pred_instances
+            pred_instances_more.bboxes = torch.cat((pred_instances.bboxes, pred_instances_tir.bboxes), dim=0)
+            pred_instances_more.labels = torch.cat((pred_instances.labels, pred_instances_tir.labels), dim=0)
+            pred_instances_more.scores = torch.cat((pred_instances.scores, pred_instances_tir.scores), dim=0)
+            pred_instances_more.values = torch.cat((pred_instances.values, pred_instances_tir.values), dim=0)
+            data_sample.pred_instances =  pred_instances_more
+        samplelist_boxtype2tensor(data_samples)
+        return data_samples

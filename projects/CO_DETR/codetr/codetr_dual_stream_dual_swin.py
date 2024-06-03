@@ -113,7 +113,7 @@ class CoDETR_Dual_Swin(BaseDetector):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = True
+                copy_ori = False
             # if ("backbone.patch_embed" in k and "backbone.patch_embed1" not in k) or  ("backbone.stages" in k and "backbone.stages1" not in k
             # or ("backbone.norm" in k and "backbone.tir_norm"  not in k) ):
             #     # Pretrained on original model

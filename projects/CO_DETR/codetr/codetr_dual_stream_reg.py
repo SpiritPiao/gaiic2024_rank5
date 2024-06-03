@@ -1,9 +1,11 @@
 import copy
+import math
 from turtle import forward
 from typing import Any, Mapping, Tuple, Union
 
 import cv2
 from mmengine.optim import OptimWrapper
+import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -19,6 +21,61 @@ from projects.CO_DETR.codetr.registration_net import Unet
 import torch.nn.functional as F
 from torch.distributions.normal import Normal
 
+def ncc_loss(y_true, y_pred):
+
+    I = y_true
+    J = y_pred
+    channel = y_true.shape[1]
+    # get dimension of volume
+    # assumes I, J are sized [batch_size, *vol_shape, nb_feats]
+    ndims = len(list(I.size())) - 2
+    assert ndims in [1, 2, 3], "volumes should be 1 to 3 dimensions. found: %d" % ndims
+
+    # set window size
+    win = [9] * ndims
+
+    # compute filters
+    sum_filt = torch.ones([channel, 1, *win]).to(y_pred.device)
+
+    pad_no = math.floor(win[0]/2)
+
+    if ndims == 1:
+        stride = (1)
+        padding = (pad_no)
+    elif ndims == 2:
+        stride = (1,1)
+        padding = (pad_no, pad_no)
+    else:
+        stride = (1,1,1)
+        padding = (pad_no, pad_no, pad_no)
+
+    # get convolution function
+    conv_fn = getattr(F, 'conv%dd' % ndims)
+
+    # compute CC squares
+    I2 = I * I
+    J2 = J * J
+    IJ = I * J
+
+    I_sum = conv_fn(I, sum_filt, stride=stride, padding=padding)
+    J_sum = conv_fn(J, sum_filt, stride=stride, padding=padding)
+    I2_sum = conv_fn(I2, sum_filt, stride=stride, padding=padding)
+    J2_sum = conv_fn(J2, sum_filt, stride=stride, padding=padding)
+    IJ_sum = conv_fn(IJ, sum_filt, stride=stride, padding=padding)
+
+    win_size = np.prod(win)
+    u_I = I_sum / win_size
+    u_J = J_sum / win_size
+
+    cross = IJ_sum - u_J * I_sum - u_I * J_sum + u_I * u_J * win_size
+    I_var = I2_sum - 2 * u_I * I_sum + u_I * u_I * win_size
+    J_var = J2_sum - 2 * u_J * J_sum + u_J * u_J * win_size
+
+    cc = cross * cross / (I_var * J_var + 1e-5)
+
+    return -torch.mean(cc)
+
+
 @MODELS.register_module()
 class CoDETR_Dual_Reg(BaseDetector):
 
@@ -32,7 +89,7 @@ class CoDETR_Dual_Reg(BaseDetector):
             bbox_head=[None],  # one-stage
             train_cfg=[None, None],
             test_cfg=[None, None],
-            input_fix_shape = [1024, 1024],
+            input_fix_shape=[1024, 1024],
             # Control whether to consider positive samples
             # from the auxiliary head as additional positive queries.
             with_pos_coord=True,
@@ -106,7 +163,7 @@ class CoDETR_Dual_Reg(BaseDetector):
         self.test_cfg = test_cfg
 
         ################## Align Features ##################
-        assert len(neck['in_channels']) == 4, "Only accept input neck channels eq to 4."
+        assert len(neck['in_channels']) == 4, "Only accept input neck channels‘ length equal to 4."
         self.reg_net_256 = Unet(len(neck['in_channels']) * 2)
         
         self.spt_256 = SpatialTransformer(size=(input_fix_shape[0] // 4, input_fix_shape[1] // 4))
@@ -236,12 +293,12 @@ class CoDETR_Dual_Reg(BaseDetector):
         z = [] 
         for idx, i in enumerate(x):
             j = i
-            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, align_corners=True, mode="bilinear")
+            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, mode="bilinear")
             fuse_x.append(j)
         
         for idx, i in enumerate(y):
             j = i
-            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, align_corners=True, mode="bilinear")
+            j = F.interpolate(i.mean(dim=1, keepdim=True), size=shape, mode="bilinear")
             fuse_y.append(j)
         
         fuse_x = torch.concat(fuse_x, dim=1)
@@ -259,14 +316,15 @@ class CoDETR_Dual_Reg(BaseDetector):
             ## Align Features ##
             hr1_f = i
             hr2_f = j
-            flow = F.interpolate(flow, size=shape, align_corners=True, mode="bilinear")
-            z.append(spt.forward(hr1_f, flow) + hr2_f)
+            flow = F.interpolate(flow, size=shape, mode="bilinear")
+            z.append([spt(hr1_f, flow), hr2_f])
+            # z.append(hr1_f + hr2_f)
             shape = [shape[0] // 2, shape[1] // 2]
             flow = flow * .5
             
         return z
 
-    def extract_feat(self, batch_inputs: Tensor, batch_inputs2: Tensor) -> Tuple[Tensor]:
+    def extract_feat(self, batch_inputs: Tensor, batch_inputs2: Tensor, output_feat_pairs=True) -> Tuple[Tensor]:
         """Extract features.
 
         Args:
@@ -278,12 +336,16 @@ class CoDETR_Dual_Reg(BaseDetector):
         """
 
         x = self.backbone1(batch_inputs)
-        y = self.backbone1(batch_inputs2)
+        y = self.backbone2(batch_inputs2)
         
-        z = self.feat_align(x, y)
+        feat_pairs = self.feat_align(x, y)
+        z = [i + j for i, j in feat_pairs]
 
         if self.with_neck:
             z = self.neck(z)
+        if output_feat_pairs:
+            return z, feat_pairs
+            
         return z
 
     def _forward(self,
@@ -305,7 +367,7 @@ class CoDETR_Dual_Reg(BaseDetector):
                 input_img_h, input_img_w = batch_input_shape
                 img_metas['img_shape'] = [input_img_h, input_img_w]
 
-        x = self.extract_feat(batch_inputs, batch_inputs2)
+        x, pairs = self.extract_feat(batch_inputs, batch_inputs2, output_feat_pairs=True)
 
         losses = dict()
 
@@ -319,6 +381,17 @@ class CoDETR_Dual_Reg(BaseDetector):
                     new_losses[new_k] = v * weight
             return new_losses
 
+        def feat_sim_loss(pairs):
+            new_losses = dict()
+            loss_n = 0
+            for idx, (i, j) in enumerate(pairs):
+                loss_n += torch.nn.SmoothL1Loss()(i, j) * 2 ** idx
+            new_losses["feat_sim_loss"] = loss_n
+            return new_losses
+
+        # Registration loss
+        losses.update(feat_sim_loss(pairs))
+        
         # DETR encoder and decoder forward
         if self.with_query_head:
             bbox_losses, x = self.query_head.loss(x, batch_data_samples)

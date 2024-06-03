@@ -324,17 +324,16 @@ load_pipeline = [
     dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
     dict(type='Albumentation', prob = 1),
+    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
     # dict(type='Cache_Mixup', prob = 0.1),
 
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
-
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
 
-    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
 
 
     dict(type='Image2Broadcaster',
@@ -381,6 +380,7 @@ train_pipeline = load_pipeline + [
 #         )
 # )
 
+
 train_dataloader = dict(
         batch_size=2, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
@@ -388,11 +388,12 @@ train_dataloader = dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
             data_root=data_root,
-            ann_file='merged_coco_new_vis_3cls.json',
-            data_prefix=dict(img='train_with_Vis_3cls/rgb'),
+            ann_file='merged_coco_new_vis_5cls.json',
+            data_prefix=dict(img='train_with_Vis_5cls/rgb'),
             pipeline=train_pipeline
         )
     )
+
 
 # follow ViTDet
 test_pipeline = [

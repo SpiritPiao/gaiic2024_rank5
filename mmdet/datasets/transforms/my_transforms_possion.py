@@ -50,7 +50,7 @@ class CopyPaste_Possion(BaseTransform):
                  center_ratio_range: Tuple[float, float] = (0.5, 1.5),
                  bbox_clip_border: bool = True,
                  pad_val: float = 114.0,
-                 prob: float = 1.0) -> None:
+                 prob: float = 0.1) -> None:
         assert isinstance(img_scale, tuple)
         assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
                                  f'got {prob}.'
@@ -647,6 +647,10 @@ class Albumentation(BaseTransform):
                 A.MedianBlur(p=0.03),
                 A.MotionBlur(p=0.03),
                 A.RandomBrightnessContrast(p=0.03),
+                A.ImageCompression(p = 0.02),
+                A.RGBShift(p = 0.02),
+                A.CLAHE(p = 0.02)
+
 
                 ]  # transforms
         albu_tr = albumentations.Compose(T)

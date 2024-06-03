@@ -609,34 +609,34 @@ tta_pipeline = [
 custom_hooks = [dict(type='Fp16CompresssionHook')]
 
 # Ori
-# optim_wrapper = dict(
-#     _delete_=True,
-#     type='OptimWrapper',
-#     optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
-#     clip_grad=dict(max_norm=0.1, norm_type=2),
-#     paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
+optim_wrapper = dict(
+    _delete_=True,
+    type='OptimWrapper',
+    optimizer=dict(type='AdamW', lr=1e-4, weight_decay=0.0001),
+    clip_grad=dict(max_norm=0.1, norm_type=2),
+    paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
 
 
 # CoDETR official
 # optimizer
 # We use layer-wise learning rate decay, but it has not been implemented.
-optimizer = dict(
-    type='AdamW',
-    lr=5e-5,
-    weight_decay=0.05,
-    # custom_keys of sampling_offsets and reference_points in DeformDETR
-    paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.1)}))
+# optimizer = dict(
+#     type='AdamW',
+#     lr=5e-5,
+#     weight_decay=0.05,
+#     # custom_keys of sampling_offsets and reference_points in DeformDETR
+#     paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
 
 # DetVit
 # optim_wrapper = dict(
 #     _delete_=True,
 #     type='AmpOptimWrapper',
 #     constructor='LayerDecayOptimizerConstructor',
-#     paramwise_cfg={
-#         'decay_rate': 0.7,
-#         'decay_type': 'layer_wise',
-#         'num_layers': 12,
-#     },
+#     # paramwise_cfg={
+#     #     'decay_rate': 0.7,
+#     #     'decay_type': 'layer_wise',
+#     #     'num_layers': 12,
+#     # },
 #     optimizer=dict(
 #         type='AdamW',
 #         lr=0.0001,

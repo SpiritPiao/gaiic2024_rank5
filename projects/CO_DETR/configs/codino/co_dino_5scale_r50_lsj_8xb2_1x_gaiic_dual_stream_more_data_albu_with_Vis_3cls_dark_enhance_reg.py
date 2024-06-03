@@ -15,7 +15,6 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.datasets.my_coco',
                                'projects.CO_DETR.codetr',
                                'projects.CO_DETR.codetr.codetr_dual_stream_reg'
-
                                ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
@@ -24,12 +23,11 @@ data_root = '/root/workspace/data/GAIIC2024/'
 data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
-
+# find_unused_parameters=True
 image_size = (1024, 1024)
 image_size = (1024, 1024)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
-
 batch_augments = [
     dict(type='BatchFixedSizePad', size=image_size)
 ]

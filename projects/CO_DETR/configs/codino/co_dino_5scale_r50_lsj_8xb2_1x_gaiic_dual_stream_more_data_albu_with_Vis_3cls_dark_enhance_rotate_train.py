@@ -13,10 +13,7 @@ custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
                                'mmdet.models.data_preprocessors.my_data_preprocessor',
                                'mmdet.datasets.transforms.my_transforms_possion',
                                'mmdet.datasets.my_coco',
-                               'projects.CO_DETR.codetr',
-                               'projects.CO_DETR.codetr.codetr_dual_stream_vat',
-                               'projects.CO_DETR.codetr.co_dino_head _vat',
-                               'projects.CO_DETR.codetr.codetr_dual_stream_dual_swin_vat'
+                               'projects.CO_DETR.codetr'
                                ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
@@ -27,7 +24,7 @@ data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
 image_size = (1024, 1024)
-image_size = (1024, 1024)
+
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -40,7 +37,7 @@ num_dec_layer = 6
 loss_lambda = 2.0
 
 model = dict(
-    type='CoDETR_Dual_Vat',
+    type='CoDETR_Dual_Reg',
     # If using the lsj augmentation,
     # it is recommended to set it to True.
     use_lsj=True,
@@ -74,7 +71,7 @@ model = dict(
         norm_cfg=dict(type='GN', num_groups=32),
         num_outs=5),
     query_head=dict(
-        type='CoDINOHead_Vat',
+        type='CoDINOHead',
         num_query=900,
         num_classes=num_classes,
         in_channels=2048,
@@ -315,27 +312,25 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(type='RandDarkMask', prob=0.1),
+    dict(
+        type='Rotate',
+        prob=0.1,
+        # level=0,
+        # min_mag=90.0,
+        max_mag=180.0,
+        # reversal_prob=1.,
+    ),
+    # dict(type='Bright', prob = 1),
+    dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
     dict(type='Albumentation', prob = 1),
 
-    # dict(
-    #     type='mmdet.Albu',
-    #     transforms=albu_train_transforms,
-    #     bbox_params=dict(
-    #         type='BboxParams',
-    #         format='pascal_voc',
-    #         label_fields=['gt_bboxes_labels', 'gt_ignore_flags']),
-    #     keymap={
-    #         'img': 'image',
-    #         'gt_bboxes': 'bboxes'
-    #     }
-    # ),
-    # dict(type='Pre_Pianyi', canvas_size = (670, 542), p=1),
+    # dict(type='Cache_Mixup', prob = 0.1),
+
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
-    
+
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
 
@@ -404,10 +399,9 @@ test_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    
     dict(type='CLAHE', prob = 1),
-    # dict(type='RandDarkMask', prob=1),
-    # dict(type='Pre_Pianyi', canvas_size = (650, 520), p=1),
+    # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
+    # dict(type='Pre_Pianyi', canvas_size = (700, 570), p=1),
     
 
     dict(type='Branch',
@@ -422,12 +416,33 @@ test_pipeline = [
                    'scale_factor'))
 ]
 
+# follow ViTDet
+val_pipeline = [
+    dict(type='LoadImageFromFile'),
+    dict(type='LoadImageFromFile2'),
+    dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
+    dict(type='CLAHE', prob = 1),
+    # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
+    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    
+
+    dict(type='Branch',
+         transforms=[
+             dict(type='Resize', scale=image_size, keep_ratio=True),
+             dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
+         ]),
+    
+    dict(
+        type='DoublePackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape', 'img_path2', 'ori_shape2', 'img_shape2',
+                   'scale_factor'))
+]
 
 val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
     classwise=True,
-    ann_file=data_root + 'val.json')
+    ann_file=data_root + 'merged_coco_new.json')
 # val_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
@@ -435,9 +450,9 @@ val_evaluator = dict(
 val_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        data_root=data_root_vis,
-        ann_file='val.json',
-        data_prefix=dict(img='images/val/rgb'),
+            data_root=data_root,
+            ann_file='merged_coco_new.json',
+            data_prefix=dict(img='train_more/rgb'),
         pipeline=test_pipeline))
 # val_dataloader = dict(dataset=dict(
 #         type=dataset_type,
@@ -452,22 +467,27 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
-)
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
+#     # outfile_prefix='./VisDrone2019'
+#     ann_file=data_root + 'instances_test2017.json',
+#     outfile_prefix='./dual_test_result'
+# )
 
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root=data_root,
+# test_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         data_root = data_root,
+#         # data_root='/root/workspace/data/Visdrone/',
+#         # ann_file='orin_text/5cls/train.json',
+#         # data_prefix=dict(img='train/rgb'),
         
-        ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
+#         ann_file='instances_test2017.json',
+#         data_prefix=dict(img='test/rgb'),
+#         pipeline=test_pipeline))
 
 
 optim_wrapper = dict(
@@ -516,14 +536,27 @@ dict(
 
 img_scales = [(640, 640), (320, 320), (960, 960)]
 img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
-img_scales = [(1024, 1024), (960, 960), (1280, 1280)]
+img_scales = [(1024, 1024)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),
     dict(type='CLAHE', prob = 1),
+    # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
+    # dict(type='Bright', prob = 1),
     dict(
         type='TestTimeAug',
         transforms=[
+            # [
+            #     dict(
+            #         type='Branch',
+            #         transforms=[dict(type='RandDarkMask', prob=1, dark_channel_prob=1)]
+            #     ),
+            #     dict(
+            #         type='Branch',
+            #         transforms=[dict(type='RandDarkMask', prob=0, dark_channel_prob=1)]
+            #     ),
+                
+            # ],
             [
                 dict(
                     type='Branch',

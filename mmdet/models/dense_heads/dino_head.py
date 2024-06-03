@@ -124,7 +124,7 @@ class DINOHead(DeformableDETRHead):
          all_layers_denoising_cls_scores, all_layers_denoising_bbox_preds) = \
             self.split_outputs(
                 all_layers_cls_scores, all_layers_bbox_preds, dn_meta)
-
+        
         loss_dict = super(DeformableDETRHead, self).loss_by_feat(
             all_layers_matching_cls_scores, all_layers_matching_bbox_preds,
             batch_gt_instances, batch_img_metas, batch_gt_instances_ignore)

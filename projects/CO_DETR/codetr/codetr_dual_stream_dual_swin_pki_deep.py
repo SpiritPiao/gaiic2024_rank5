@@ -4,7 +4,6 @@ from typing import Any, Mapping, Tuple, Union
 
 import cv2
 from mmengine.optim import OptimWrapper
-import numpy as np
 import torch
 import torch.nn as nn
 from torch import Tensor
@@ -16,7 +15,7 @@ from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 # from .dual_resnet import Dual_ResNet
 
 @MODELS.register_module()
-class CoDETR_Dual(BaseDetector):
+class CoDETR_Dual_Swin_Pki_Deep(BaseDetector):
 
     def __init__(
             self,
@@ -37,7 +36,7 @@ class CoDETR_Dual(BaseDetector):
             eval_index=0,
             data_preprocessor: OptConfigType = None,
             init_cfg: OptMultiConfig = None):
-        super(CoDETR_Dual, self).__init__(
+        super(CoDETR_Dual_Swin_Pki_Deep, self).__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
         self.with_pos_coord = with_pos_coord
         self.use_lsj = use_lsj
@@ -46,11 +45,12 @@ class CoDETR_Dual(BaseDetector):
         self.eval_module = eval_module
 
         self.backbone1 = MODELS.build(backbone)
-        self.backbone2 = MODELS.build(backbone)
+        # self.backbone2 = MODELS.build(backbone)
         
         if neck is not None:
             self.neck = MODELS.build(neck)
-
+            self.neck2 = MODELS.build(neck)
+            
         # Module index for evaluation
         self.eval_index = eval_index
         head_idx = 0
@@ -61,6 +61,8 @@ class CoDETR_Dual(BaseDetector):
             query_head.update(test_cfg=test_cfg[head_idx])
             self.query_head = MODELS.build(query_head)
             self.query_head.init_weights()
+            self.query_head_tir = MODELS.build(query_head)
+            self.query_head_tir.init_weights()
             head_idx += 1
 
         if rpn_head is not None:
@@ -71,9 +73,15 @@ class CoDETR_Dual(BaseDetector):
             rpn_head_.update(
                 train_cfg=rpn_train_cfg, test_cfg=test_cfg[head_idx].rpn)
             self.rpn_head = MODELS.build(rpn_head_)
+            rpn_head__ = rpn_head.copy()
+            rpn_head__.update(
+                train_cfg=rpn_train_cfg, test_cfg=test_cfg[head_idx].rpn)
+            self.rpn_head_tir = MODELS.build(rpn_head__)
             self.rpn_head.init_weights()
+            self.rpn_head_tir.init_weights()
 
         self.roi_head = nn.ModuleList()
+        self.roi_head_tir = nn.ModuleList()
         for i in range(len(roi_head)):
             if roi_head[i]:
                 rcnn_train_cfg = train_cfg[i + head_idx].rcnn if (
@@ -83,8 +91,11 @@ class CoDETR_Dual(BaseDetector):
                 roi_head[i].update(test_cfg=test_cfg[i + head_idx].rcnn)
                 self.roi_head.append(MODELS.build(roi_head[i]))
                 self.roi_head[-1].init_weights()
+                self.roi_head_tir.append(MODELS.build(roi_head[i]))
+                self.roi_head_tir[-1].init_weights()
 
         self.bbox_head = nn.ModuleList()
+        self.bbox_head_tir = nn.ModuleList()
         for i in range(len(bbox_head)):
             if bbox_head[i]:
                 bbox_head[i].update(
@@ -95,16 +106,15 @@ class CoDETR_Dual(BaseDetector):
                 bbox_head[i].update(test_cfg=test_cfg[i + head_idx +
                                                       len(self.roi_head)])
                 self.bbox_head.append(MODELS.build(bbox_head[i]))
+                self.bbox_head_tir.append(MODELS.build(bbox_head[i]))
                 self.bbox_head[-1].init_weights()
+                self.bbox_head_tir[-1].init_weights()
 
         self.head_idx = head_idx
         self.train_cfg = train_cfg
         self.test_cfg = test_cfg
 
-        # self.eaef1 = EAEF(256)
-        # self.eaef2 = EAEF(512)
-        # self.eaef3 = EAEF(1024)
-        # self.eaef4 = EAEF(2048)
+
         
     def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
         # Find backbone parameters
@@ -112,35 +122,66 @@ class CoDETR_Dual(BaseDetector):
         ori_backbone_params = []
         ori_backbone_key = []
         for k, v in state_dict.items():
-            if (k.startswith("backbone")  and "backbone1" not in k and "backbone2" not in k):
-            # or (k.startswith("neck")  and "neck1" not in k and "neck2" not in k):
+            if  ("neck." in k and "neck2."  not in k) or ("query_head" in k and " query_head_tir"  not in k) \
+            or ("rpn_head." in k and "rpn_head_tir."  not in k) or ("roi_head.0" in k and "roi_head_tir.0"  not in k) or ("bbox_head.0" in k and "bbox_head_tir.0"  not in k):
+
+
+            # if ("backbone.patch_embed" in k and "backbone1.patch_embed1" not in k) or  ("backbone.stages" in k and "backbone1.stages1" not in k) or ("backbone.norm" in k and "backbone1.tir_norm"  not in k ) \
+            # or ("backbone.patch_embed" in k and "backbone1.patch_embed" not in k) or  ("backbone.stages" in k and "backbone1.stages" not in k) or ("backbone.norm" in k and "backbone1.norm"  not in k ) \
+            # or ("backbone.patch_embed" in k and "backbone1.patch_embed2" not in k) or  ("backbone.stages" in k and "backbone1.stages2" not in k) or ("backbone.norm" in k and "backbone1.tir2_norm"  not in k ) \
+            # or ("neck." in k and "neck2."  not in k) or ("query_head" in k and " query_head_tir"  not in k) \
+            # or ("rpn_head." in k and "rpn_head_tir."  not in k) or ("roi_head.0" in k and "roi_head_tir.0"  not in k) or ("bbox_head.0" in k and "bbox_head_tir.0"  not in k):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = True
+                copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
-                state_dict[k.replace("backbone", "backbone1")] = v
-                state_dict[k.replace("backbone", "backbone2")] = copy.deepcopy(v)
-                # state_dict[k.replace("neck", "neck1")] = v
-                # state_dict[k.replace("neck", "neck2")] = copy.deepcopy(v)
-                del state_dict[k]
-            # Force set the strict to "False"
-            strict = False
-        res = super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-        # print(res)
-        return res
+                state_dict[k] = v
 
-    
+
+
+                state_dict[k.replace("neck." , "neck2.")] = copy.deepcopy(v)
+                state_dict[k.replace("query_head." , "query_head_tir.")] = copy.deepcopy(v)
+                state_dict[k.replace("rpn_head." , "rpn_head_tir.")] = copy.deepcopy(v)
+                state_dict[k.replace("roi_head.0" , "roi_head_tir.0")] = copy.deepcopy(v)
+                state_dict[k.replace("bbox_head.0" , "bbox_head_tir.0")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone1.patch_embed")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone1.patch_embed1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.patch_embed", "backbone1.patch_embed2")] = copy.deepcopy(v)
+
+                # state_dict[k.replace("backbone.stages", "backbone1.stages")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.stages", "backbone1.stages1")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.stages", "backbone1.stages2")] = copy.deepcopy(v)
+
+                # state_dict[k.replace("backbone.norm" , "backbone1.norm")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.norm" , "backbone1.tir_norm")] = copy.deepcopy(v)
+                # state_dict[k.replace("backbone.norm" , "backbone1.tir2_norm")] = copy.deepcopy(v)
+
+                # state_dict[k.replace("neck." , "neck2.")] = copy.deepcopy(v)
+                # state_dict[k.replace("query_head." , "query_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("rpn_head." , "rpn_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("roi_head.0" , "roi_head_tir.0")] = copy.deepcopy(v)
+                # state_dict[k.replace("bbox_head.0" , "bbox_head_tir.0")] = copy.deepcopy(v)
+                # del state_dict[k]
+                # state_dict[k] = v
+                # state_dict[k.replace("neck." , "neck2.")] = copy.deepcopy(v)
+                # state_dict[k.replace("query_head." , "query_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("rpn_head." , "rpn_head_tir.")] = copy.deepcopy(v)
+                # state_dict[k.replace("roi_head.0" , "roi_head_tir.0")] = copy.deepcopy(v)
+                # state_dict[k.replace("bbox_head.0" , "bbox_head_tir.0")] = copy.deepcopy(v)
+                # del state_dict[k]
+            # Force set the strict to "False"
+            strict = True
+        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
+
 
     def forward(self,
                     inputs: torch.Tensor,
                     inputs2: torch.Tensor,
                     data_samples: OptSampleList = None,
                     mode: str = 'tensor'):
-
-            
             """The unified entry for a forward process in both training and test.
 
             The method should accept three modes: "tensor", "predict" and "loss":
@@ -229,20 +270,23 @@ class CoDETR_Dual(BaseDetector):
             has shape (bs, dim, H, W).
         """
                 
-        x = list(self.backbone1(batch_inputs))
-        y = list(self.backbone2(batch_inputs2))
-        # z = x
+        # x = list(self.backbone1(batch_inputs))
+        # y = list(self.backbone2(batch_inputs2))
+        z, z_pki= self.backbone1([batch_inputs,batch_inputs2])
+        # z_pki = list(self.backbone1([batch_inputs,batch_inputs2])[1])
         
-        z = [i + j for i, j in zip(x, y)]
-
-
+        ## Concat #
+        # x[0], y[0] = self.eaef1([x[0], y[0]])
+        # x[1], y[1] = self.eaef2([x[1], y[1]])
+        # x[2], y[2] = self.eaef3([x[2], y[2]])
+        # x[3], y[3] = self.eaef4([x[3], y[3]])
+        # z = [i + j for i, j in zip(x, y)]
+        
         if self.with_neck:
-            z = self.neck(z)
-            # x = list(self.neck1(x))
-            # y = list(self.neck2(y))
-        # z = tuple([i + j for i, j in zip(x, y)])
-  
-        return z
+            z_tir = self.neck(z)
+            z_pki_tir = self.neck2(z_pki)
+            # z = [i + j for i, j in zip(z_rgb,z_tir)]
+        return z_tir, z_pki_tir
 
     def _forward(self,
                  batch_inputs: Tensor,
@@ -255,6 +299,7 @@ class CoDETR_Dual(BaseDetector):
 
     def loss(self, batch_inputs: Tensor, batch_inputs2: Tensor,
              batch_data_samples: SampleList) -> Union[dict, list]:
+        aux = 0.5
         
         batch_input_shape = batch_data_samples[0].batch_input_shape
         if self.use_lsj:
@@ -262,33 +307,8 @@ class CoDETR_Dual(BaseDetector):
                 img_metas = data_samples.metainfo
                 input_img_h, input_img_w = batch_input_shape
                 img_metas['img_shape'] = [input_img_h, input_img_w]
-        input_pianyi = False
-        if input_pianyi:
-            import torch.nn.functional as F
 
-            B = batch_inputs.size(0)
-            input_shape = batch_inputs.shape
-            rotation = (torch.rand(B, 1, 1) - 0.5) * torch.pi / 12
-            rotation = torch.expand_copy(rotation, (B, 2, 2))
-            rotation[:, 0, 0] = torch.cos(rotation[:, 0, 0])
-            rotation[:, 1, 1] = torch.cos(rotation[:, 1, 1])
-            rotation[:, 0, 1] = torch.sin(-rotation[:, 0, 1])
-            rotation[:, 1, 0] = torch.sin(rotation[:, 1, 0])
-            transpose = torch.clamp(torch.normal(mean=0, std=1, size=(B, 2, 1)) * 0.16, -0.2, 0.2)
-            theta = torch.concat([rotation, transpose], dim=2) # B, 2, 3
-            assert theta.shape == (B, 2, 3)
-            grid = F.affine_grid(theta, input_shape, align_corners=True)\
-                .to(dtype=batch_inputs.dtype, device=batch_inputs.device, non_blocking=True)
-            # from mmdet.visualization.local_visualizer import DetLocalVisualizer
-            # dv = DetLocalVisualizer()
-            # image_before = batch_inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
-            # image2 = inputs.permute(0, 2,3,1)[0].cpu().numpy()[:,:,::-1] * 255
-            # dv.add_datasample('image', image, data_samples[0], draw_gt=True, show=True)
-            # dv.add_datasample('image2', image2, data_samples[0], draw_gt=True, show=True)
-            moving_batch_inputs = batch_inputs.detach()
-            batch_inputs =  F.grid_sample(moving_batch_inputs, grid, align_corners=True)
-
-        x = self.extract_feat(batch_inputs, batch_inputs2)
+        x_rgb, x_tir = self.extract_feat(batch_inputs, batch_inputs2)
 
         losses = dict()
 
@@ -304,16 +324,17 @@ class CoDETR_Dual(BaseDetector):
 
         # DETR encoder and decoder forward
         if self.with_query_head:
-            # print(x)
-            # if np.isnan(x[0].cpu().detach().numpy()).any():
-            #     print(x)
-            # print("+" * 100)
-            # print(x[0].max(), x[0].min())
-            # print(type(self.query_head))
-            bbox_losses, x = self.query_head.loss(x, batch_data_samples)
-            # print(bbox_losses, x[0].max(), x[0].min())
-            # print("-" * 100)
+            bbox_losses, x_rgb = self.query_head.loss(x_rgb, batch_data_samples)
+            bbox_losses_tir, x_tir = self.query_head_tir.loss(x_tir, batch_data_samples)
+            keys_tir = bbox_losses_tir.keys()
+            for key in list(keys_tir):
+                if 'loss' in key and 'tir' not in key:
+                    bbox_losses_tir[f'tir_{key}'] = bbox_losses_tir.pop(key)
+
             losses.update(bbox_losses)
+            for key in bbox_losses_tir:
+                bbox_losses_tir[key]  = bbox_losses_tir[key] * aux
+            losses.update(bbox_losses_tir)
 
         # RPN forward and loss
         if self.with_rpn:
@@ -325,17 +346,35 @@ class CoDETR_Dual(BaseDetector):
             for data_sample in rpn_data_samples:
                 data_sample.gt_instances.labels = \
                     torch.zeros_like(data_sample.gt_instances.labels)
+            rpn_data_samples_tir = copy.deepcopy(batch_data_samples)
+            # set cat_id of gt_labels to 0 in RPN
+            for data_sample in rpn_data_samples_tir:
+                data_sample.gt_instances.labels = \
+                    torch.zeros_like(data_sample.gt_instances.labels)
 
             rpn_losses, proposal_list = self.rpn_head.loss_and_predict(
-                x, rpn_data_samples, proposal_cfg=proposal_cfg)
+                x_rgb, rpn_data_samples, proposal_cfg=proposal_cfg)
+            rpn_losses_tir, proposal_list_tir = self.rpn_head_tir.loss_and_predict(
+                x_tir, rpn_data_samples_tir, proposal_cfg=proposal_cfg)
 
             # avoid get same name with roi_head loss
             keys = rpn_losses.keys()
+            keys_tir = rpn_losses_tir.keys()
             for key in list(keys):
                 if 'loss' in key and 'rpn' not in key:
                     rpn_losses[f'rpn_{key}'] = rpn_losses.pop(key)
+            for key in list(keys_tir):
+                if 'loss' in key and 'rpn' not in key:
+                    rpn_losses_tir[f'tir_rpn_{key}'] = rpn_losses_tir.pop(key)
+            for key in list(keys_tir):
+                if 'rpn' in key and 'loss' in key and 'tir' not in key:
+                    rpn_losses_tir[f'tir_{key}'] = rpn_losses_tir.pop(key)
 
             losses.update(rpn_losses)
+            for key in rpn_losses_tir:
+                for i in range(len(rpn_losses_tir[key])):
+                    rpn_losses_tir[key][i]  = rpn_losses_tir[key][i] * aux
+            losses.update(rpn_losses_tir)
         else:
             assert batch_data_samples[0].get('proposals', None) is not None
             # use pre-defined proposals in InstanceData for the second stage
@@ -345,34 +384,70 @@ class CoDETR_Dual(BaseDetector):
             ]
 
         positive_coords = []
+        positive_coords_tir = []
         for i in range(len(self.roi_head)):
-            roi_losses = self.roi_head[i].loss(x, proposal_list,
+            roi_losses = self.roi_head[i].loss(x_rgb, proposal_list,
+                                               batch_data_samples)
+            roi_losses_tir = self.roi_head_tir[i].loss(x_tir, proposal_list_tir,
                                                batch_data_samples)
             if self.with_pos_coord:
                 positive_coords.append(roi_losses.pop('pos_coords'))
+                positive_coords_tir.append(roi_losses_tir.pop('pos_coords'))
             else:
                 if 'pos_coords' in roi_losses.keys():
                     roi_losses.pop('pos_coords')
             roi_losses = upd_loss(roi_losses, idx=i)
+            roi_losses_tir = upd_loss(roi_losses_tir, idx=i)
+            keys_tir = roi_losses_tir.keys()
+            for key in list(keys_tir):
+                if 'tir' not in key:
+                    roi_losses_tir[f'tir_{key}'] = roi_losses_tir.pop(key)
             losses.update(roi_losses)
+            for key in roi_losses_tir:
+                roi_losses_tir[key]  = roi_losses_tir[key] * aux
+            losses.update(roi_losses_tir)
 
         for i in range(len(self.bbox_head)):
-            bbox_losses = self.bbox_head[i].loss(x, batch_data_samples)
+            bbox_losses = self.bbox_head[i].loss(x_rgb, batch_data_samples)
+            bbox_losses_tir = self.bbox_head_tir[i].loss(x_tir, batch_data_samples)
             if self.with_pos_coord:
                 pos_coords = bbox_losses.pop('pos_coords')
                 positive_coords.append(pos_coords)
+                pos_coords_tir = bbox_losses_tir.pop('pos_coords')
+                positive_coords_tir.append(pos_coords_tir)
             else:
                 if 'pos_coords' in bbox_losses.keys():
                     bbox_losses.pop('pos_coords')
             bbox_losses = upd_loss(bbox_losses, idx=i + len(self.roi_head))
+            bbox_losses_tir = upd_loss(bbox_losses_tir, idx=i + len(self.roi_head_tir))
+            keys_tir = bbox_losses_tir.keys()
+            for key in list(keys_tir):
+                if 'loss' in key and 'tir' not in key:
+                    bbox_losses_tir[f'tir_{key}'] = bbox_losses_tir.pop(key)
             losses.update(bbox_losses)
+            for key in bbox_losses_tir:
+                for i in range(len(bbox_losses_tir[key])):
+                    bbox_losses_tir[key][i]  = bbox_losses_tir[key][i] * aux
+            losses.update(bbox_losses_tir)
 
         if self.with_pos_coord and len(positive_coords) > 0:
             for i in range(len(positive_coords)):
-                bbox_losses = self.query_head.loss_aux(x, positive_coords[i],
+                bbox_losses = self.query_head.loss_aux(x_rgb, positive_coords[i],
                                                        i, batch_data_samples)
                 bbox_losses = upd_loss(bbox_losses, idx=i)
                 losses.update(bbox_losses)
+        if self.with_pos_coord and len(positive_coords_tir) > 0:
+            for i in range(len(positive_coords_tir)):
+                bbox_losses_tir = self.query_head_tir.loss_aux(x_tir, positive_coords_tir[i],
+                                                       i, batch_data_samples)
+                keys_tir = bbox_losses_tir.keys()
+                for key in list(keys_tir):
+                    if 'loss' in key and 'tir' not in key:
+                        bbox_losses_tir[f'tir_{key}'] = bbox_losses_tir.pop(key)
+                bbox_losses_tir = upd_loss(bbox_losses_tir, idx=i)
+                for key in bbox_losses_tir:
+                    bbox_losses_tir[key]  = bbox_losses_tir[key] * aux
+                losses.update(bbox_losses_tir)
 
         return losses
 
@@ -411,19 +486,27 @@ class CoDETR_Dual(BaseDetector):
                 input_img_h, input_img_w = img_metas['batch_input_shape']
                 img_metas['img_shape'] = [input_img_h, input_img_w]
 
-        img_feats = self.extract_feat(batch_inputs, batch_inputs2)
+        img_feats, img_feats_tir = self.extract_feat(batch_inputs, batch_inputs2)
         if self.with_bbox and self.eval_module == 'one-stage':
             results_list = self.predict_bbox_head(
                 img_feats, batch_data_samples, rescale=rescale)
+            results_list_tir = self.predict_bbox_head(
+                img_feats_tir, batch_data_samples, rescale=rescale)
         elif self.with_roi_head and self.eval_module == 'two-stage':
             results_list = self.predict_roi_head(
                 img_feats, batch_data_samples, rescale=rescale)
+            results_list_tir = self.predict_roi_head(
+                img_feats_tir, batch_data_samples, rescale=rescale)
         else:
             results_list = self.predict_query_head(
                 img_feats, batch_data_samples, rescale=rescale)
+            # results_list_tir = self.predict_query_head_tir(
+            #     img_feats_tir, batch_data_samples, rescale=rescale)
 
         batch_data_samples = self.add_pred_to_datasample(
             batch_data_samples, results_list)
+        # batch_data_samples = self.add_pred_to_datasample_add(
+        #     batch_data_samples, results_list, results_list_tir)
         return batch_data_samples
 
     def predict_query_head(self,
@@ -431,6 +514,12 @@ class CoDETR_Dual(BaseDetector):
                            batch_data_samples: SampleList,
                            rescale: bool = True) -> InstanceList:
         return self.query_head.predict(
+            mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
+    def predict_query_head_tir(self,
+                           mlvl_feats: Tuple[Tensor],
+                           batch_data_samples: SampleList,
+                           rescale: bool = True) -> InstanceList:
+        return self.query_head_tir.predict(
             mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
 
     def predict_roi_head(self,

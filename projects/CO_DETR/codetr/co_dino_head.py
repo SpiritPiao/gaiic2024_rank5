@@ -112,19 +112,21 @@ class CoDINOHead(DINOHead):
                 dn_label_query=None,
                 dn_bbox_query=None,
                 attn_mask=None):
+        
+        
         # print(len(mlvl_feats))
         # for i in mlvl_feats:
             # print(i.shape)
         # print(mlvl_feats[1].shape)
+        
         batch_size = mlvl_feats[0].size(0)
         input_img_h, input_img_w = img_metas[0]['batch_input_shape']
         img_masks = mlvl_feats[0].new_ones(
             (batch_size, input_img_h, input_img_w))
         for img_id in range(batch_size):
-            # print(img_id)
             img_h, img_w = img_metas[img_id]['img_shape']
             img_masks[img_id, :img_h, :img_w] = 0
-
+        
         mlvl_masks = []
         mlvl_positional_encodings = []
         for feat in mlvl_feats:
@@ -157,7 +159,8 @@ class CoDINOHead(DINOHead):
             start = end
             outs.append(feat.reshape(bs, c, h, w))
         outs.append(self.downsample(outs[-1]))
-
+        
+        # breakpoint()
         hs = hs.permute(0, 2, 1, 3)
 
         if dn_label_query is not None and dn_label_query.size(1) == 0:
@@ -318,7 +321,7 @@ class CoDINOHead(DINOHead):
 
         outs = self(x, batch_img_metas, dn_label_query, dn_bbox_query,
                     attn_mask)
-
+        
         loss_inputs = outs[:-1] + (batch_gt_instances, batch_img_metas,
                                    dn_meta)
         losses = self.loss_by_feat(*loss_inputs)

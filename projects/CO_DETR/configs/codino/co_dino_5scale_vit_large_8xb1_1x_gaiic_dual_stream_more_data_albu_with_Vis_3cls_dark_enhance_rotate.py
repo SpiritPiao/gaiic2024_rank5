@@ -22,9 +22,9 @@ data_root = '/root/workspace/data/GAIIC2024/'
 data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
-load_from = '/root/workspace/data/dual_mmdetection/mmdetection/co_dino_5scale_vit_large_coco.pth'
+# load_from = '/root/workspace/data/dual_mmdetection/mmdetection/co_dino_5scale_vit_large_coco.pth'
 
-image_size = (1536, 1536)
+image_size = (1024, 1024)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
 
@@ -32,10 +32,13 @@ batch_augments = [
     dict(type='BatchFixedSizePad', size=image_size)
 ]
 residual_block_indexes = []
-
+window_block_indexes = (
+    list(range(0, 3)) + list(range(4, 7)) + list(range(8, 11)) + list(range(12, 15)) + list(range(16, 19)) +
+    list(range(20, 23)) + list(range(24, 27)))
 # model settings
 num_dec_layer = 6
 loss_lambda = 2.0
+lambda_2 = 2.0
 
 model = dict(
     type='CoDETR_Dual',
@@ -85,25 +88,27 @@ model = dict(
             target_means=[.0, .0, .0, .0],
             target_stds=[1.0, 1.0, 1.0, 1.0]),
         loss_cls=dict(
-            type='CrossEntropyLoss', use_sigmoid=True, loss_weight=1.0*num_dec_layer*lambda_2),
+            type='CrossEntropyLoss', 
+            use_sigmoid=True, 
+            loss_weight=1.0*num_dec_layer*lambda_2),
         loss_bbox=dict(type='L1Loss', loss_weight=1.0*num_dec_layer*lambda_2)),
     query_head=dict(
         type='CoDINOHead',
         num_query=1500,
-        num_classes=80,
-        num_feature_levels=5,
+        num_classes=num_classes,
+        # num_feature_levels=5,
         in_channels=2048,
-        sync_cls_avg_factor=True,
+        # sync_cls_avg_factor=True,
         as_two_stage=True,
-        with_box_refine=True,
-        mixed_selection=True,
+        # with_box_refine=True,
+        # mixed_selection=True,
         dn_cfg=dict(
-            type='CdnQueryGenerator',
-            noise_scale=dict(label=0.5, box=0.4),  # 0.5, 0.4 for DN-DETR
+            label_noise_scale=0.5,
+            box_noise_scale=0.4,            
             group_cfg=dict(dynamic=True, num_groups=None, num_dn_queries=300)),
         transformer=dict(
             type='CoDinoTransformer',
-            with_pos_coord=True,
+            # with_pos_coord=True,
             with_coord_feat=False,
             num_co_heads=2,
             num_feature_levels=5,
@@ -114,7 +119,10 @@ model = dict(
                 transformerlayers=dict(
                     type='BaseTransformerLayer',
                     attn_cfgs=dict(
-                        type='MultiScaleDeformableAttention', embed_dims=256, num_levels=5, dropout=0.0),
+                        type='MultiScaleDeformableAttention', 
+                        embed_dims=256, 
+                        num_levels=5, 
+                        dropout=0.0),
                     feedforward_channels=2048,
                     ffn_dropout=0.0,
                     operation_order=('self_attn', 'norm', 'ffn', 'norm'))),
@@ -209,10 +217,11 @@ model = dict(
         dict(
             assigner=dict(
                 type='HungarianAssigner',
-                cls_cost=dict(type='FocalLossCost', weight=2.0),
-                reg_cost=dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
-                iou_cost=dict(type='IoUCost', iou_mode='giou', weight=2.0))),
-        dict(
+                match_costs=[
+                    dict(type='FocalLossCost', weight=2.0),
+                    dict(type='BBoxL1Cost', weight=5.0, box_format='xywh'),
+                    dict(type='IoUCost', iou_mode='giou', weight=2.0)
+                ])),        dict(
             rpn=dict(
                 assigner=dict(
                     type='MaxIoUAssigner',
@@ -289,7 +298,6 @@ model = dict(
 #     # dict(type='ToGray', p=0.01),
 #     # dict(type='CLAHE', p=0.01)
 # ]
-
 load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
@@ -299,7 +307,7 @@ load_pipeline = [
         prob=0.1,
         # level=0,
         # min_mag=90.0,
-        max_mag=180.0,
+        # max_mag=180.0,
         # reversal_prob=1.,
     ),
     # dict(type='Bright', prob = 1),
@@ -372,7 +380,7 @@ train_dataloader = dict(
             ann_file='merged_coco_new_vis_3cls.json',
             data_prefix=dict(img='train_with_Vis_3cls/rgb'),
             pipeline=train_pipeline,
-            filter_empty_gt=False, 
+            filter_cfg=dict(filter_empty_gt=True, min_size=32),
         )
     )
 
@@ -475,7 +483,6 @@ test_dataloader = dict(dataset=dict(
         ann_file='instances_test2017.json',
         data_prefix=dict(img='test/rgb'),
         pipeline=test_pipeline))
-dist_params = dict(backend='nccl')
 
 
 # optim_wrapper = dict(
@@ -519,10 +526,12 @@ optimizer = dict(
     type='AdamW',
     lr=5e-5,
     weight_decay=0.05,
+    clip_grad=dict(max_norm=0.1, norm_type=2),
+
     # custom_keys of sampling_offsets and reference_points in DeformDETR
-    paramwise_cfg=dict(custom_keys={'backbone': dict(lr_mult=0.1)}))
+    paramwise_cfg=dict(custom_keys={'backbone1': dict(lr_mult=0.1), 'backbone2': dict(lr_mult=0.1)}))
 
-
+optimizer_config=dict(grad_clip=dict(max_norm=35, norm_type=2))
 
 default_hooks = dict(
     checkpoint=dict(by_epoch=True, interval=1, max_keep_ckpts=7))

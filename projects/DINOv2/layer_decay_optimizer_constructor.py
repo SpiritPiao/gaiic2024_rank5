@@ -21,7 +21,7 @@ def get_layer_id_for_vit(var_name, max_layer_id):
         int: The id number corresponding to different learning rate in
         ``LayerDecayOptimizerConstructor``.
     """
-    if var_name.startswith('backbone'):
+    if var_name.startswith('backbone') or var_name.startswith('backbone1') or var_name.startswith('backbone2'):
         if 'patch_embed' in var_name or 'pos_embed' in var_name:
             return 0
         elif '.blocks.' in var_name:
@@ -63,7 +63,7 @@ class LayerDecayOptimizerConstructor(DefaultOptimWrapperConstructor):
         for name, param in module.named_parameters():
             if not param.requires_grad:
                 continue  # frozen weights
-            if name.startswith('backbone.blocks') and 'norm' in name:
+            if (name.startswith('backbone.blocks') or name.startswith('backbone1.blocks') or name.startswith('backbone2.blocks')) and 'norm' in name:
                 group_name = 'no_decay'
                 this_weight_decay = 0.
             elif 'pos_embed' in name:

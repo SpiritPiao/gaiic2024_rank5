@@ -1,6 +1,7 @@
 # Copyright (c) OpenMMLab. All rights reserved.
 from typing import Dict, List, Tuple
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -225,7 +226,6 @@ class DETRHead(BaseModule):
         assert batch_gt_instances_ignore is None, \
             f'{self.__class__.__name__} only supports ' \
             'for batch_gt_instances_ignore setting to None.'
-
         losses_cls, losses_bbox, losses_iou = multi_apply(
             self.loss_by_feat_single,
             all_layers_cls_scores,

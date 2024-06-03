@@ -22,6 +22,7 @@ from mmengine.logging import MMLogger
 import warnings
 from collections import OrderedDict
 from copy import deepcopy
+
 try:
     import xformers.ops as xops
 except:
@@ -99,7 +100,7 @@ class VisionRotaryEmbeddingFast(nn.Module):
         self.register_buffer("freqs_cos", freqs_cos)
         self.register_buffer("freqs_sin", freqs_sin)
 
-        print('======== shape of rope freq', self.freqs_cos.shape, '========')
+        # print('======== shape of rope freq', self.freqs_cos.shape, '========')
 
     def forward(self, t): return  t * self.freqs_cos + rotate_half(t) * self.freqs_sin
 
@@ -156,11 +157,12 @@ class PatchEmbed(nn.Module):
             embed_dim (int):  embed_dim (int): Patch embedding dimension.
         """
         super().__init__()
-
+    
         self.proj = nn.Conv2d(
             in_chans, embed_dim, kernel_size=kernel_size, stride=stride, padding=padding
         )
-
+        
+        
     def forward(self, x):
         x = self.proj(x)
         # B C H W -> B H W C
@@ -716,16 +718,24 @@ class ViT(BaseModule):
             msg = self.load_state_dict(state_dict, False)
             logger.info(msg)
 
-
+    
     def forward(self, x):
+        # x = x / x.max()
+        # print(1)
+        # print(x.max())
         x = self.patch_embed(x)
+        
+        # print(2)
+        # print(x.max(), x.min())
         if self.pos_embed is not None:
             x = x + get_abs_pos(
                 self.pos_embed, self.pretrain_use_cls_token, (x.shape[1], x.shape[2])
             )
-
+        # print(3)
+        # print(x.max())
         for blk in self.blocks:
             x = blk(x)
-
+        # print(4)
+        # print(x.max())
         outputs = [self.out_norm(x).permute(0, 3, 1, 2).contiguous()]
         return outputs

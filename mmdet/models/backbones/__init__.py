@@ -20,10 +20,12 @@ from .swin import SwinTransformer
 from .dual_swin import Dual_SwinTransformer
 from .dual_swin_reg import Dual_SwinTransformer_Reg
 from .dual_swin_c2former import Dual_SwinTransformer_C2Former
-from .dual_swin_cbnet_pki import Dual_SwinTransformer_CBPki
+from .dual_swin_cbnet_pki import Dual_SwinTransformer_CBPki,Dual_SwinTransformer_CBPki_Deep
+# from .dual_swin_cbnet_pki_deep import Dual_SwinTransformer_CBPki_Deep
 from .dual_swin_cbnet_pkiv2 import Dual_SwinTransformer_CBPkiv2
 from .dual_swin_cbnet_pkiv3 import Dual_SwinTransformer_CBPkiv3
 from .dual_swin_cbnet_swin import Dual_SwinTransformer_CBSwin
+from .dual_swin_cbnet_swin_deepsupervise import Dual_SwinTransformer_CBSwin_DeepSupervise
 from .trident_resnet import TridentResNet
 from .vit import ViT
 
@@ -33,5 +35,5 @@ __all__ = [
     'DetectoRS_ResNeXt', 'Darknet', 'ResNeSt', 'TridentResNet', 'CSPDarknet',
     'SwinTransformer', 'PyramidVisionTransformer',
     'PyramidVisionTransformerV2', 'EfficientNet', 'CSPNeXt','Dual_ResNet','Dual_SwinTransformer','Dual_SwinTransformer_Reg',
-    'Dual_SwinTransformer_C2Former', 'ViT'
+    'Dual_SwinTransformer_C2Former','Dual_SwinTransformer_CBSwin_DeepSupervise','ViT'
 ]

@@ -85,14 +85,14 @@ model = dict(
     ),
     query_head=dict(
         type='CoDINOHead',
-        num_query=900,
+        num_query=1500,
         num_classes=num_classes,
         in_channels=2048,
         as_two_stage=True,
         dn_cfg=dict(
             label_noise_scale=0.5,
             box_noise_scale=1.0,
-            group_cfg=dict(dynamic=True, num_groups=None, num_dn_queries=100)),
+            group_cfg=dict(dynamic=True, num_groups=None, num_dn_queries=300)),
         transformer=dict(
             type='CoDinoTransformer',
             with_coord_feat=False,
@@ -104,7 +104,7 @@ model = dict(
                 # number of layers that use checkpoint.
                 # The maximum value for the setting is num_layers.
                 # FairScale must be installed for it to work.
-                with_cp=4,
+                with_cp=6,
                 transformerlayers=dict(
                     type='BaseTransformerLayer',
                     attn_cfgs=dict(
