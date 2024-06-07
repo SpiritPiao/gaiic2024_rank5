@@ -105,6 +105,9 @@ class CoDINOHead(DINOHead):
             dn_cfg['num_matching_queries'] = self.num_query
             dn_cfg['embed_dims'] = self.embed_dims
         self.dn_generator = CdnQueryGenerator(**dn_cfg)
+    
+    def is_in_export(self):
+        return torch.onnx.is_in_onnx_export() or getattr(self, 'export', False)
 
     def forward(self,
                 mlvl_feats,
@@ -121,11 +124,24 @@ class CoDINOHead(DINOHead):
         
         batch_size = mlvl_feats[0].size(0)
         input_img_h, input_img_w = img_metas[0]['batch_input_shape']
+        # use_pad_ltrb = img_metas[0].get('pad_ltrb')
+        use_pad_ltrb = False
+        
         img_masks = mlvl_feats[0].new_ones(
             (batch_size, input_img_h, input_img_w))
-        for img_id in range(batch_size):
-            img_h, img_w = img_metas[img_id]['img_shape']
-            img_masks[img_id, :img_h, :img_w] = 0
+        
+        if self.is_in_export():
+            img_masks = torch.zeros_like(img_masks)
+
+        if not hasattr(self, 'img_masks'):
+            for img_id in range(batch_size):
+                img_h, img_w = img_metas[img_id]['img_shape']
+                if use_pad_ltrb:
+                    # print(f'find pad_ltrb: {img_metas[img_id]["pad_ltrb"]}')
+                    _, _, _r, _b = img_metas[img_id]['pad_ltrb']
+                    img_h = img_h - _b
+                    img_w = img_w - _r
+                img_masks[img_id, :img_h, :img_w] = 0
         
         mlvl_masks = []
         mlvl_positional_encodings = []
@@ -217,6 +233,9 @@ class CoDINOHead(DINOHead):
         cls_scores = all_cls_scores[-1]
         bbox_preds = all_bbox_preds[-1]
 
+        if self.is_in_export():
+            return self._export_forward(cls_scores, bbox_preds)
+
         result_list = []
         for img_id in range(len(batch_img_metas)):
             cls_score = cls_scores[img_id]
@@ -226,6 +245,27 @@ class CoDINOHead(DINOHead):
                                                    img_meta, rescale)
             result_list.append(results)
         return result_list
+
+    def _export_forward(self,
+                        cls_scores: Tensor,
+                        bbox_preds: Tensor) -> List[Tensor]:
+        batch_size = cls_scores.shape[0]
+        max_per_img = self.test_cfg.get('max_per_img', self.num_query)
+
+        for cls_score, bbox_pred in zip(cls_scores, bbox_preds):
+            assert len(cls_score) == len(bbox_pred)  # num_queries
+        
+        if self.loss_cls.use_sigmoid:
+            cls_scores = cls_scores.sigmoid()
+            scores, indexes = cls_scores.view(batch_size, -1).topk(max_per_img, dim=-1)
+            det_labels = indexes % self.num_classes
+            bbox_index = indexes // self.num_classes
+            bbox_index = bbox_index.unsqueeze(-1).expand(-1, -1, 4)
+            bbox_preds = torch.gather(bbox_preds, 1, bbox_index)
+            det_bboxes = bbox_cxcywh_to_xyxy(bbox_preds)
+            return det_bboxes, scores, det_labels
+        else:
+            raise NotImplementedError
 
     def _predict_by_feat_single(self,
                                 cls_score: Tensor,
@@ -283,6 +323,14 @@ class CoDINOHead(DINOHead):
             det_labels = det_labels[valid_mask]
 
         det_bboxes = bbox_cxcywh_to_xyxy(bbox_pred)
+
+        # if hasattr(self, 'saved'):
+        #     self.saved[-1]['boxes'] = det_bboxes.detach().cpu().numpy()
+        #     self.saved[-1]['scores'] = scores.detach().cpu().numpy()
+        #     self.saved[-1]['labels'] = det_labels.detach().cpu().numpy()
+        #     if len(self.saved) == 10:
+        #         print('saved has 10 elements')
+
         det_bboxes[:, 0::2] = det_bboxes[:, 0::2] * img_shape[1]
         det_bboxes[:, 1::2] = det_bboxes[:, 1::2] * img_shape[0]
         det_bboxes[:, 0::2].clamp_(min=0, max=img_shape[1])

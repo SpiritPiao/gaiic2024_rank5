@@ -137,7 +137,7 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                 # Pretrained on original model
                 ori_backbone_params += [v]
                 ori_backbone_key += [k]
-                copy_ori = True
+                copy_ori = False
                 
         if copy_ori:
             for k, v in zip(ori_backbone_key, ori_backbone_params):
@@ -499,13 +499,13 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
         if self.with_bbox and self.eval_module == 'one-stage':
             results_list = self.predict_bbox_head(
                 img_feats, batch_data_samples, rescale=rescale)
-            results_list_tir = self.predict_bbox_head(
-                img_feats_tir, batch_data_samples, rescale=rescale)
+            # results_list_tir = self.predict_bbox_head(
+            #     img_feats_tir, batch_data_samples, rescale=rescale)
         elif self.with_roi_head and self.eval_module == 'two-stage':
             results_list = self.predict_roi_head(
                 img_feats, batch_data_samples, rescale=rescale)
-            results_list_tir = self.predict_roi_head(
-                img_feats_tir, batch_data_samples, rescale=rescale)
+            # results_list_tir = self.predict_roi_head(
+            #     img_feats_tir, batch_data_samples, rescale=rescale)
         else:
             results_list = self.predict_query_head(
                 img_feats, batch_data_samples, rescale=rescale)
@@ -524,12 +524,12 @@ class CoDETR_Dual_Swin_Neck_pkiv3(BaseDetector):
                            rescale: bool = True) -> InstanceList:
         return self.query_head.predict(
             mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
-    def predict_query_head_tir(self,
-                           mlvl_feats: Tuple[Tensor],
-                           batch_data_samples: SampleList,
-                           rescale: bool = True) -> InstanceList:
-        return self.query_head_tir.predict(
-            mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
+    # def predict_query_head_tir(self,
+    #                        mlvl_feats: Tuple[Tensor],
+    #                        batch_data_samples: SampleList,
+    #                        rescale: bool = True) -> InstanceList:
+    #     return self.query_head_tir.predict(
+    #         mlvl_feats, batch_data_samples=batch_data_samples, rescale=rescale)
 
     def predict_roi_head(self,
                          mlvl_feats: Tuple[Tensor],

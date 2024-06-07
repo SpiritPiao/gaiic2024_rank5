@@ -272,6 +272,32 @@ model = dict(
             pos_weight=-1,
             debug=False)
     ],
+    # test_cfg=[
+    #     # Deferent from the DINO, we use the NMS.
+    #     dict(
+    #         max_per_img=1000,
+    #         # NMS can improve the mAP by 0.2.
+    #         nms=dict(type='soft_nms', iou_threshold=0.8)),
+    #     dict(
+    #         rpn=dict(
+    #             nms_pre=8000,
+    #             max_per_img=2000,
+    #             nms=dict(type='nms', iou_threshold=0.9),
+    #             min_bbox_size=0),
+    #         rcnn=dict(
+    #             score_thr=0.0,
+    #             nms=dict(type='nms', iou_threshold=0.5),
+    #             max_per_img=1000)),
+    #     dict(
+    #         # atss bbox head:
+    #         nms_pre=1000,
+    #         min_bbox_size=0,
+    #         score_thr=0.0,
+    #         nms=dict(type='soft_nms', iou_threshold=0.6),
+    #         max_per_img=100),
+    #     # soft-nms is also supported for rcnn testing
+    #     # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
+    # ]
     test_cfg=[
         # Deferent from the DINO, we use the NMS.
         dict(
@@ -297,16 +323,9 @@ model = dict(
             max_per_img=100),
         # soft-nms is also supported for rcnn testing
         # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
-    ])
-# albu_train_transforms = [
-#     dict(type='Blur', p=0.02),
-#     dict(type='MedianBlur', p=0.02),
-#     dict(type='MotionBlur', p=0.02),
-#     dict(type='RandomBrightness', p=0.02),
+    ]
+    )
 
-#     # dict(type='ToGray', p=0.01),
-#     # dict(type='CLAHE', p=0.01)
-# ]
 # LSJ + CopyPaste
 load_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -330,6 +349,52 @@ load_pipeline = [
 
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
     dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
+    dict(
+        type='RandomChoice',
+        transforms=[
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(480, 2048), (512, 2048), (544, 2048), (576, 2048),
+                            (608, 2048), (640, 2048), (672, 2048), (704, 2048),
+                            (736, 2048), (768, 2048), (800, 2048), (832, 2048),
+                            (864, 2048), (896, 2048), (928, 2048), (960, 2048),
+                            (992, 2048), (1024, 2048), (1056, 2048),
+                            (1088, 2048), (1120, 2048), (1152, 2048),
+                            (1184, 2048), (1216, 2048), (1248, 2048),
+                            (1280, 2048), (1312, 2048), (1344, 2048),
+                            (1376, 2048), (1408, 2048), (1440, 2048),
+                            (1472, 2048), (1504, 2048), (1536, 2048)],
+                    keep_ratio=True)
+            ],
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    # The radio of all image in train dataset < 7
+                    # follow the original implement
+                    scales=[(400, 4200), (500, 4200), (600, 4200)],
+                    keep_ratio=True),
+                dict(
+                    type='Du_RandomCrop',
+                    crop_type='absolute_range',
+                    crop_size=(384, 600),
+                    allow_negative_crop=True),
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(480, 2048), (512, 2048), (544, 2048), (576, 2048),
+                            (608, 2048), (640, 2048), (672, 2048), (704, 2048),
+                            (736, 2048), (768, 2048), (800, 2048), (832, 2048),
+                            (864, 2048), (896, 2048), (928, 2048), (960, 2048),
+                            (992, 2048), (1024, 2048), (1056, 2048),
+                            (1088, 2048), (1120, 2048), (1152, 2048),
+                            (1184, 2048), (1216, 2048), (1248, 2048),
+                            (1280, 2048), (1312, 2048), (1344, 2048),
+                            (1376, 2048), (1408, 2048), (1440, 2048),
+                            (1472, 2048), (1504, 2048), (1536, 2048)],
+                    keep_ratio=True)
+            ]
+        ]),
+
     
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
@@ -338,27 +403,28 @@ load_pipeline = [
 
     dict(type='Image2Broadcaster',
         transforms=[
-                dict(
-                    type='RandomResize',
-                    scale=image_size,
-                    ratio_range=(0.1, 2.0),
-                    keep_ratio=True),
-                dict(
-                    type='RandomCrop',
-                    crop_type='absolute_range',
-                    crop_size=image_size,
-                    recompute_bbox=True,
-                    allow_negative_crop=True),
+                # dict(
+                #     type='RandomResize',
+                #     scale=image_size,
+                #     ratio_range=(0.1, 2.0),
+                #     keep_ratio=True),
+                # dict(
+                #     type='RandomCrop',
+                #     crop_type='absolute_range',
+                #     crop_size=image_size,
+                #     recompute_bbox=True,
+                #     allow_negative_crop=True),
                 dict(type='RandomFlip', prob=0.5),
                 dict(type='RandomFlip', prob=0.5, direction='vertical'),
+                dict(type='RandomFlip', prob=0.5, direction='diagonal'),
         ]
     ),
-    dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
-    dict(type='Branch',
-         transforms=[
-                 dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
-        ]
-    ),
+    # dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
+    # dict(type='Branch',
+    #      transforms=[
+    #              dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
+    #     ]
+    # ),
     
 ]
 
@@ -380,19 +446,18 @@ train_pipeline = load_pipeline + [
 #         )
 # )
 
-
 train_dataloader = dict(
-        batch_size=2, num_workers=1, 
+        batch_size=1, num_workers=1, 
         sampler=dict(type='DefaultSampler', shuffle=True),
         dataset=dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
             data_root=data_root,
-            ann_file='merged_coco_new_vis_5cls.json',
-            data_prefix=dict(img='train_with_Vis_5cls/rgb'),
+            ann_file='merged_coco_new_vis_3cls.json',
+            data_prefix=dict(img='train_with_Vis_3cls/rgb'),
             pipeline=train_pipeline
         )
-    )
+   )
 
 
 # follow ViTDet
@@ -401,14 +466,16 @@ test_pipeline = [
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
+    # dict(type='Resize', scale=(2048, 1280), keep_ratio=True),
     # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
     # dict(type='Pre_Pianyi', canvas_size = (700, 570), p=1),
     
 
     dict(type='Branch',
          transforms=[
-             dict(type='Resize', scale=image_size, keep_ratio=True),
-             dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
+            dict(type='Resize', scale=(1280, 1280), keep_ratio=True),
+
+            dict(type='Pad', size=(1280, 1280), pad_val=dict(img=(114, 114, 114))),
          ]),
     
     dict(
@@ -424,13 +491,15 @@ val_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
     # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
-    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    # dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    # dict(type='Resize', scale=(2048, 1280), keep_ratio=True),
     
 
     dict(type='Branch',
          transforms=[
-             dict(type='Resize', scale=image_size, keep_ratio=True),
-             dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
+            dict(type='Resize', scale=(1280, 1280), keep_ratio=True),
+            # dict(type='Resize', scale=(2048, 1280), keep_ratio=True),
+            dict(type='Pad', size=(1280, 1280), pad_val=dict(img=(114, 114, 114))),
          ]),
     
     dict(
@@ -449,9 +518,7 @@ val_evaluator = dict(
 #     metric='bbox',
 #     ann_file=data_root_vis + 'annotations/test_tir.json')
 val_dataloader = dict(
-    num_workers=1
-    persistent_workers=False,
-    # persistent_workers=True,
+    persistent_workers=True,
     drop_last=False,
     sampler=dict(type='DefaultSampler', shuffle=False),
     dataset=dict(
@@ -475,27 +542,27 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
-    # outfile_prefix='./VisDrone2019'
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
-)
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
+#     # outfile_prefix='./VisDrone2019'
+#     ann_file=data_root + 'instances_test2017.json',
+#     outfile_prefix='./dual_test_result_detr'
+# )
 
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        data_root = data_root,
-        # data_root='/root/workspace/data/Visdrone/',
-        # ann_file='orin_text/5cls/train.json',
-        # data_prefix=dict(img='train/rgb'),
+# test_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         data_root = data_root,
+#         # data_root='/root/workspace/data/Visdrone/',
+#         # ann_file='orin_text/5cls/train.json',
+#         # data_prefix=dict(img='train/rgb'),
         
-        ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
+#         ann_file='instances_test2017.json',
+#         data_prefix=dict(img='test/rgb'),
+#         pipeline=test_pipeline))
 
 
 optim_wrapper = dict(
@@ -544,7 +611,7 @@ dict(
 
 img_scales = [(640, 640), (320, 320), (960, 960)]
 img_scales = [(1024, 1024), (1536, 1536), (512, 512)]
-img_scales = [(1024, 1024)]
+img_scales = [(1280, 2048), (1024, 1024)]
 tta_pipeline = [
     dict(type='LoadImageFromFile', backend_args=None),
     dict(type='LoadImageFromFile2'),
@@ -580,6 +647,10 @@ tta_pipeline = [
                 dict(
                     type='Branch',
                     transforms=[dict(type='RandomFlip', prob=1., direction='vertical')]
+                ),
+                dict(
+                    type='Branch',
+                    transforms=[dict(type='RandomFlip', prob=1., direction='diagonal')]
                 ),
                 dict(
                     type='Branch',

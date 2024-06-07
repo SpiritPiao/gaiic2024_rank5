@@ -297,16 +297,9 @@ model = dict(
             max_per_img=100),
         # soft-nms is also supported for rcnn testing
         # e.g., nms=dict(type='soft_nms', iou_threshold=0.5, min_score=0.05)
-    ])
-# albu_train_transforms = [
-#     dict(type='Blur', p=0.02),
-#     dict(type='MedianBlur', p=0.02),
-#     dict(type='MotionBlur', p=0.02),
-#     dict(type='RandomBrightness', p=0.02),
+    ]
+    )
 
-#     # dict(type='ToGray', p=0.01),
-#     # dict(type='CLAHE', p=0.01)
-# ]
 # LSJ + CopyPaste
 load_pipeline = [
     dict(type='LoadImageFromFile'),
@@ -315,6 +308,7 @@ load_pipeline = [
     dict(
         type='Rotate',
         prob=0.1,
+        max_mag=15.0,
         # level=0,
         # min_mag=90.0,
         # max_mag=180.0,
@@ -329,7 +323,7 @@ load_pipeline = [
     # dict(type='Cache_Mixup', prob = 0.1),
 
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
-    dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
+    # dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
     
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
@@ -341,7 +335,7 @@ load_pipeline = [
                 dict(
                     type='RandomResize',
                     scale=image_size,
-                    ratio_range=(0.1, 2.0),
+                    ratio_range=(0.5, 2.0),
                     keep_ratio=True),
                 dict(
                     type='RandomCrop',
@@ -351,6 +345,7 @@ load_pipeline = [
                     allow_negative_crop=True),
                 dict(type='RandomFlip', prob=0.5),
                 dict(type='RandomFlip', prob=0.5, direction='vertical'),
+                dict(type='RandomFlip', prob=0.5, direction='diagonal'),
         ]
     ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
@@ -423,13 +418,15 @@ val_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
     # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
-    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    # dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
     
 
     dict(type='Branch',
          transforms=[
-             dict(type='Resize', scale=image_size, keep_ratio=True),
-             dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
+            # dict(type='RandomFlip', prob=1., direction='vertical'),
+
+            dict(type='Resize', scale=image_size, keep_ratio=True),
+            dict(type='Pad', size=image_size, pad_val=dict(img=(114, 114, 114))),
          ]),
     
     dict(
@@ -454,10 +451,12 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        data_root=data_root_vis,
+        # data_root=data_root,
+        data_root='/root/workspace/3-12-data/',
         test_mode=True,
         ann_file='val.json',
-        data_prefix=dict(img='images/val/rgb'),
+        # data_prefix=dict(img='images/cycle_gan/val/rgb'),
+        data_prefix=dict(img='cyclegan_val/rgb/'),
         pipeline=val_pipeline))
 # val_dataloader = dict(dataset=dict(
 #         type=dataset_type,
@@ -479,19 +478,19 @@ test_evaluator = dict(
     # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
     # outfile_prefix='./VisDrone2019'
     ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result'
+    outfile_prefix='./dual_test_result_cyclegan'
 )
 
 test_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        data_root = data_root,
-        # data_root='/root/workspace/data/Visdrone/',
+        # data_root = data_root,
+        data_root='/root/workspace/3-12-data/',
         # ann_file='orin_text/5cls/train.json',
-        # data_prefix=dict(img='train/rgb'),
+        data_prefix=dict(img='cyclegan_test/rgb/'),
         
         ann_file='instances_test2017.json',
-        data_prefix=dict(img='test/rgb'),
+        # data_prefix=dict(img='test/rgb'),
         pipeline=test_pipeline))
 
 
@@ -578,6 +577,10 @@ tta_pipeline = [
                     type='Branch',
                     transforms=[dict(type='RandomFlip', prob=1., direction='vertical')]
                 ),
+                # dict(
+                #     type='Branch',
+                #     transforms=[dict(type='RandomFlip', prob=1., direction='diagonal')]
+                # ),
                 dict(
                     type='Branch',
                     transforms=[dict(type='RandomFlip', prob=0.)]
@@ -589,7 +592,7 @@ tta_pipeline = [
                     transforms=[
                         dict(
                             type='Pad',
-                            size=image_size,
+                            size=(1024, 1024),
                             pad_val=dict(img=(114, 114, 114))
                         )
                     ]

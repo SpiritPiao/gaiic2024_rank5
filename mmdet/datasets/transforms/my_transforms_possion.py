@@ -647,9 +647,9 @@ class Albumentation(BaseTransform):
                 A.MedianBlur(p=0.03),
                 A.MotionBlur(p=0.03),
                 A.RandomBrightnessContrast(p=0.03),
-                A.ImageCompression(p = 0.02),
-                A.RGBShift(p = 0.02),
-                A.CLAHE(p = 0.02)
+                A.ImageCompression(quality_lower = 75, p = 0.03),
+                # A.RGBShift(p = 0.02),
+                # A.CLAHE(p = 0.02)
 
 
                 ]  # transforms

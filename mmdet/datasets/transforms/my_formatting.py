@@ -49,7 +49,9 @@ class DoublePackDetInputs(BaseTransform):
 
     def __init__(self,
                  meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                            'scale_factor', 'flip', 'flip_direction')):
+                            'scale_factor', 'flip', 'flip_direction', 'pad_ltrb')):
+        if 'pad_ltrb' not in meta_keys:
+            meta_keys = meta_keys + ('pad_ltrb', )
         self.meta_keys = meta_keys
 
     def transform(self, results: dict) -> dict:

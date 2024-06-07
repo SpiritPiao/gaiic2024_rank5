@@ -514,6 +514,12 @@ class Rotate(GeomTransform):
             mag,
             border_value=self.img_border_value,
             interpolation=self.interpolation)
+        results['img2'] = mmcv.imrotate(
+            results['img2'],
+            mag,
+            border_value=self.img_border_value,
+            interpolation=self.interpolation)
+        # print(results['img2'].shape)
 
     def _transform_masks(self, results: dict, mag: float) -> None:
         """Rotate the masks."""

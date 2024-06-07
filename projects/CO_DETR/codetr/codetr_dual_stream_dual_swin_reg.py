@@ -379,12 +379,6 @@ class CoDETR_Dual_Swin(BaseDetector):
                 input_img_h, input_img_w = img_metas['batch_input_shape']
                 img_metas['img_shape'] = [input_img_h, input_img_w]
 
-        # if hasattr(self.query_head, 'saved') and len(self.query_head.saved) < 10:
-        #     self.query_head.saved.append({
-        #         'input1': batch_inputs.detach().cpu().numpy(),
-        #         'input2': batch_inputs2.detach().cpu().numpy()
-        #     })
-            
         img_feats = self.extract_feat(batch_inputs, batch_inputs2)
         if self.with_bbox and self.eval_module == 'one-stage':
             results_list = self.predict_bbox_head(
@@ -395,10 +389,8 @@ class CoDETR_Dual_Swin(BaseDetector):
         else:
             results_list = self.predict_query_head(
                 img_feats, batch_data_samples, rescale=rescale)
-            
-        if torch.onnx.is_in_onnx_export() or getattr(self, 'export', False):
+        if (hasattr(self, 'export') and self.export) or torch.onnx.is_in_onnx_export():
             return results_list
-        
         batch_data_samples = self.add_pred_to_datasample(
             batch_data_samples, results_list)
         return batch_data_samples
