@@ -10,7 +10,7 @@
 
 CUDA_VISIBLE_DEVICES=0,6,7 ./tools/dist_test.sh   \
 /root/workspace/data/dual_mmdetection/mmdetection/projects/CO_DETR/configs/codino/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_dual_swin_albu_with_Vis_3cls_drak_enhance_cbpki_rotate.py  \
-/root/workspace/3-12-data/weights/best/pki_0526_5311_small.pth 3
+/root/workspace/3-12-data/weights/best/pki_0526_5311_small.pth 3 --tta
 # work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_dual_swin_albu_with_Vis_3cls_drak_enhance_cbpki_rotate/epoch_1.pth 8
 # /root/workspace/3-12-data/weights/best/pki_0526_5311_small.pth 8 --tta
 # work_dirs/co_dino_5scale_swin_l_16xb1_16e_gaiic_dual_stream_o365_dual_swin_albu_with_Vis_3cls_drak_enhance_cbpki_rotate_DETR/epoch_2.pth 8

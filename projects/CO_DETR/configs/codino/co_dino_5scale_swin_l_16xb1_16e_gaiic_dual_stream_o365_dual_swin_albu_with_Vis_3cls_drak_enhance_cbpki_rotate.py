@@ -34,9 +34,9 @@ model = dict(
         dn_cfg=dict(box_noise_scale=0.4, group_cfg=dict(num_dn_queries=500)),
         transformer=dict(encoder=dict(with_cp=6))))
 
-optim_wrapper = dict(optimizer=dict(lr=1e-5))
+optim_wrapper = dict(optimizer=dict(lr=1e-4))
 
-max_epochs = 2
+max_epochs = 6
 train_cfg = dict(max_epochs=max_epochs)
 
 param_scheduler = [

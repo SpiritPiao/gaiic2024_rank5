@@ -416,8 +416,13 @@ class Pre_Pianyi_Bili(BaseTransform):
         if  random.random() < self.p:
             
             img1 = results['img']
-            image_size = img1.shape[:2]  
-            bili = 1.046875
+            image_size = img1.shape[:2] 
+            if results['img_shape'][0] == 640 or results['img_shape'][1] == 640:
+                bili = 1.046875
+            else:
+                bili = 1.01
+                # print(results['img_shape'][0])
+                # print(results['img_shape'][1])
             self.canvas_size = [0,0]
             self.canvas_size[0] = int(image_size[1]  * bili)
             self.canvas_size[1] = int(image_size[0]  * bili)

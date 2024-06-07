@@ -308,7 +308,7 @@ load_pipeline = [
     dict(
         type='Rotate',
         prob=0.1,
-        max_mag=15.0,
+        max_mag=10.0,
         # level=0,
         # min_mag=90.0,
         # max_mag=180.0,
@@ -345,7 +345,7 @@ load_pipeline = [
                     allow_negative_crop=True),
                 dict(type='RandomFlip', prob=0.5),
                 dict(type='RandomFlip', prob=0.5, direction='vertical'),
-                dict(type='RandomFlip', prob=0.5, direction='diagonal'),
+                # dict(type='RandomFlip', prob=0.5, direction='diagonal'),
         ]
     ),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
@@ -381,6 +381,8 @@ train_dataloader = dict(
         dataset=dict(
             type=dataset_type,
             metainfo=dict(classes=classes),
+            filter_cfg=dict(filter_empty_gt=True, min_size=8),
+
             data_root=data_root,
             ann_file='merged_coco_new_vis_3cls.json',
             data_prefix=dict(img='train_with_Vis_3cls/rgb'),
