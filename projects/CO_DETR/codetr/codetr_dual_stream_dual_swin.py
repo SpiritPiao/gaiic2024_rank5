@@ -379,11 +379,12 @@ class CoDETR_Dual_Swin(BaseDetector):
                 input_img_h, input_img_w = img_metas['batch_input_shape']
                 img_metas['img_shape'] = [input_img_h, input_img_w]
 
-        # if hasattr(self.query_head, 'saved') and len(self.query_head.saved) < 10:
-        #     self.query_head.saved.append({
-        #         'input1': batch_inputs.detach().cpu().numpy(),
-        #         'input2': batch_inputs2.detach().cpu().numpy()
-        #     })
+        if hasattr(self.query_head, 'saved') and len(self.query_head.saved) < 10:
+            self.query_head.saved.append({
+                'input1': batch_inputs.detach().cpu().numpy(),
+                'input2': batch_inputs2.detach().cpu().numpy(),
+                'outputs': []
+            })
             
         img_feats = self.extract_feat(batch_inputs, batch_inputs2)
         if self.with_bbox and self.eval_module == 'one-stage':

@@ -127,13 +127,14 @@ class CoDINOHead(DINOHead):
         # use_pad_ltrb = img_metas[0].get('pad_ltrb')
         use_pad_ltrb = False
         
-        img_masks = mlvl_feats[0].new_ones(
-            (batch_size, input_img_h, input_img_w))
-        
         if self.is_in_export():
-            img_masks = torch.zeros_like(img_masks)
+            img_masks = mlvl_feats[0].new_zeros(
+            (batch_size, input_img_h, input_img_w))
+        else:
+            img_masks = mlvl_feats[0].new_ones(
+            (batch_size, input_img_h, input_img_w))
 
-        if not hasattr(self, 'img_masks'):
+        if not hasattr(self, 'img_masks') and not self.is_in_export():
             for img_id in range(batch_size):
                 img_h, img_w = img_metas[img_id]['img_shape']
                 if use_pad_ltrb:
@@ -146,9 +147,14 @@ class CoDINOHead(DINOHead):
         mlvl_masks = []
         mlvl_positional_encodings = []
         for feat in mlvl_feats:
-            mlvl_masks.append(
-                F.interpolate(img_masks[None],
-                              size=feat.shape[-2:]).to(torch.bool).squeeze(0))
+            if self.is_in_export():
+                feat_h, feat_w = feat.shape[-2:]
+                tmp_mask = img_masks.new_zeros([batch_size, feat_h, feat_w], dtype=torch.bool)
+            else:
+                tmp_mask = F.interpolate(img_masks[None],
+                                size=feat.shape[-2:]).to(torch.bool).squeeze(0)
+            
+            mlvl_masks.append(tmp_mask)
             mlvl_positional_encodings.append(
                 self.positional_encoding(mlvl_masks[-1]))
 
@@ -187,20 +193,37 @@ class CoDINOHead(DINOHead):
 
         outputs_classes = []
         outputs_coords = []
+        if hasattr(self, 'saved') and len(self.saved) < 10:
+            self.saved[-1]['outputs'].append(inter_references.detach().cpu().numpy())
 
         for lvl in range(hs.shape[0]):
-            reference = inter_references[lvl]
-            reference = inverse_sigmoid(reference, eps=1e-3)
-            outputs_class = self.cls_branches[lvl](hs[lvl])
-            tmp = self.reg_branches[lvl](hs[lvl])
-            if reference.shape[-1] == 4:
-                tmp += reference
+            if self.is_in_export():
+                outputs_class = self.cls_branches[lvl](hs[lvl])
+                outputs_coord = self.reg_branches[lvl](hs[lvl])
+                outputs_classes.append(outputs_class)
+                outputs_coords.append(outputs_coord)
             else:
-                assert reference.shape[-1] == 2
-                tmp[..., :2] += reference
-            outputs_coord = tmp.sigmoid()
-            outputs_classes.append(outputs_class)
-            outputs_coords.append(outputs_coord)
+                reference = inter_references[lvl]
+                reference = inverse_sigmoid(reference, eps=1e-3)
+                outputs_class = self.cls_branches[lvl](hs[lvl])
+                tmp = self.reg_branches[lvl](hs[lvl])
+                
+                if hasattr(self, 'saved') and len(self.saved) < 10:
+                    self.saved[-1]['outputs'].append(outputs_class.detach().cpu().numpy())
+                    self.saved[-1]['outputs'].append(tmp.detach().cpu().numpy())
+                else:
+                    print('10 items!')
+                if reference.shape[-1] == 4:
+                    tmp += reference
+                else:
+                    assert reference.shape[-1] == 2
+                    tmp[..., :2] += reference
+                outputs_coord = tmp.sigmoid()
+                outputs_classes.append(outputs_class)
+                outputs_coords.append(outputs_coord)
+        
+        if self.is_in_export():
+            return [inter_references] + outputs_classes + outputs_coords
 
         outputs_classes = torch.stack(outputs_classes)
         outputs_coords = torch.stack(outputs_coords)
@@ -215,7 +238,8 @@ class CoDINOHead(DINOHead):
             data_samples.metainfo for data_samples in batch_data_samples
         ]
         outs = self.forward(feats, batch_img_metas)
-
+        if self.is_in_export():
+            return outs
         predictions = self.predict_by_feat(
             *outs, batch_img_metas=batch_img_metas, rescale=rescale)
 

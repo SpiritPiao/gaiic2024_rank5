@@ -1,4 +1,4 @@
-from DCNv4.modules.dcnv4 import DCNv4
+# from DCNv4.modules.dcnv4 import DCNv4
 import torch.nn as nn
 from ..layers.pkinet import PKIOwn
 from .ops_dcnv3.modules import DCNv3

@@ -305,25 +305,26 @@ load_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadImageFromFile2'),
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
-    dict(
-        type='Rotate',
-        prob=0.1,
-        max_mag=10.0,
-        # level=0,
-        # min_mag=90.0,
-        # max_mag=180.0,
-        # reversal_prob=1.,
-    ),
+    # dict(
+    #     type='Rotate',
+    #     prob=0.1,
+    #     max_mag=10.0,
+    #     # level=0,
+    #     # min_mag=90.0,
+    #     # max_mag=180.0,
+    #     # reversal_prob=1.,
+    # ),
     # dict(type='Bright', prob = 1),
-    dict(type='RandDarkMask', prob=0.1, dark_channel_prob = 0.5),
+    dict(type='CopyPaste_Possion', img_scale=(640, 640), prob = 0.2),
+
+    dict(type='RandDarkMask', prob=0.05, dark_channel_prob = 0.5),
     dict(type='CLAHE', prob = 1),
     dict(type='Albumentation', prob = 1),
-    # dict(type='CopyPaste_Possion', img_scale=(640, 640)),
-
+  
     # dict(type='Cache_Mixup', prob = 0.1),
 
     dict(type='Pre_Pianyi_Bili', canvas_size = (670, 540), p=1),
-    # dict(type='BBox_Jitter', max_shift_px = 3, prob = 0.5),
+    dict(type='BBox_Jitter', max_shift_px = 2, prob = 0.2),
     
     # dict(type='Albumentation', prob = 1),
     # dict(type='BBox_Jitter'),
@@ -384,8 +385,8 @@ train_dataloader = dict(
             filter_cfg=dict(filter_empty_gt=True, min_size=8),
 
             data_root=data_root,
-            ann_file='merged_coco_new_vis_3cls.json',
-            data_prefix=dict(img='train_with_Vis_3cls/rgb'),
+            ann_file='merged_coco_new.json',
+            data_prefix=dict(img='train_more/rgb'),
             pipeline=train_pipeline
         )
    )
@@ -420,7 +421,7 @@ val_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True, with_mask=False),
     dict(type='CLAHE', prob = 1),
     # dict(type='RandDarkMask', prob=1, dark_channel_prob=1),
-    # dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
+    dict(type='Pre_Pianyi', canvas_size = (670, 540), p=1),
     
 
     dict(type='Branch',
@@ -453,12 +454,11 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        # data_root=data_root,
-        data_root='/root/workspace/3-12-data/',
+        data_root=data_root,
+        # data_root='/root/workspace/3-12-data/',
         test_mode=True,
         ann_file='val.json',
-        # data_prefix=dict(img='images/cycle_gan/val/rgb'),
-        data_prefix=dict(img='cyclegan_val/rgb/'),
+        data_prefix=dict(img='val/rgb/'),
         pipeline=val_pipeline))
 # val_dataloader = dict(dataset=dict(
 #         type=dataset_type,
@@ -480,19 +480,19 @@ test_evaluator = dict(
     # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
     # outfile_prefix='./VisDrone2019'
     ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result_cyclegan'
+    outfile_prefix='./dual_test_result_0609_tta3'
 )
 
 test_dataloader = dict(dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        # data_root = data_root,
-        data_root='/root/workspace/3-12-data/',
+        data_root = data_root,
+       # data_root='/root/workspace/3-12-data/',
         # ann_file='orin_text/5cls/train.json',
-        data_prefix=dict(img='cyclegan_test/rgb/'),
+       # data_prefix=dict(img='cyclegan_test/rgb/'),
         
         ann_file='instances_test2017.json',
-        # data_prefix=dict(img='test/rgb'),
+        data_prefix=dict(img='test_pei/rgb/'),
         pipeline=test_pipeline))
 
 
@@ -571,10 +571,10 @@ tta_pipeline = [
                 for s in img_scales
             ],
             [
-                dict(
-                    type='Branch',
-                    transforms=[dict(type='RandomFlip', prob=1.)]
-                ),
+                # dict(
+                #     type='Branch',
+                #     transforms=[dict(type='RandomFlip', prob=1.)]
+                # ),
                 dict(
                     type='Branch',
                     transforms=[dict(type='RandomFlip', prob=1., direction='vertical')]
@@ -583,10 +583,10 @@ tta_pipeline = [
                 #     type='Branch',
                 #     transforms=[dict(type='RandomFlip', prob=1., direction='diagonal')]
                 # ),
-                dict(
-                    type='Branch',
-                    transforms=[dict(type='RandomFlip', prob=0.)]
-                )
+                # dict(
+                #     type='Branch',
+                #     transforms=[dict(type='RandomFlip', prob=0.)]
+                # )
             ],
             [
                 dict(

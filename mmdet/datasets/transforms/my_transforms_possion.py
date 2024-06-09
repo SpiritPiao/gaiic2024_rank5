@@ -40,6 +40,7 @@ except ImportError:
 Number = Union[int, float]
 
 from .transforms import Mosaic
+number = 0
 
 @TRANSFORMS.register_module()
 class CopyPaste_Possion(BaseTransform):
@@ -61,10 +62,10 @@ class CopyPaste_Possion(BaseTransform):
         self.bbox_clip_border = bbox_clip_border
         self.pad_val = pad_val
         self.prob = prob
-        self.cropp_img = []
-        self.cropp_img_class = []
-        self.cropp_img_2 = []
-        self.number = 0
+        self.number_copy = 0
+        # self.cropp_img = []
+        # self.cropp_img_class = []
+        # self.cropp_img_2 = []
     @cache_randomness
     def get_indexes(self, cache: list) -> list:
         """Call function to collect indexes.
@@ -100,6 +101,8 @@ class CopyPaste_Possion(BaseTransform):
         mosaic_bboxes_labels = []
         mosaic_ignore_flags = []
 
+
+
         mosaic_img = results['img']
         mosaic_img2 = results['img2']
             # adjust coordinate
@@ -116,7 +119,8 @@ class CopyPaste_Possion(BaseTransform):
         mosaic_bboxes = mosaic_bboxes[0].cat(mosaic_bboxes, 0)
         mosaic_bboxes_labels = np.concatenate(mosaic_bboxes_labels, 0)
         mosaic_ignore_flags = np.concatenate(mosaic_ignore_flags, 0)
-        mosaic_img,mosaic_img2, mosaic_bboxes,mosaic_bboxes_labels,mosaic_ignore_flags = self.pro_copypaste_possion(mosaic_img.shape,mosaic_img, mosaic_img2,mosaic_bboxes,mosaic_bboxes_labels,mosaic_ignore_flags)
+        if random.random() < self.prob:
+            mosaic_img,mosaic_img2, mosaic_bboxes,mosaic_bboxes_labels,mosaic_ignore_flags = self.pro_copypaste_possion(mosaic_img.shape,mosaic_img, mosaic_img2,mosaic_bboxes,mosaic_bboxes_labels,mosaic_ignore_flags)
 
 
         # if self.bbox_clip_border:
@@ -137,12 +141,15 @@ class CopyPaste_Possion(BaseTransform):
         return results
     def pro_copypaste_possion(self,img_size1, img4,img4_2, labels4, class4, mosaic_ignore_flags, mixup_number=12,
                                          change_rotate=True, change_size=True,copy_noBlack = True,
-                                         new_scale=0.1, use_cache = True, max_cached_images=200,data_type = 'copy'):
+                                         new_scale=0.1, use_cache = False, max_cached_images=0,data_type = 'copy'):
         import random
         import cv2
         import torch
         cropp_img = []
         cropp_img_class = []
+        cropp_img = []
+        cropp_img_class = []
+        cropp_img_2 = []
 
         for label, label1 in zip(labels4, class4):
 
@@ -158,7 +165,7 @@ class CopyPaste_Possion(BaseTransform):
             cropped = img4[lower :upper , left  : right ]  # (left, upper, right, lower)
             cropped_2 = img4_2[lower :upper , left  : right ]  # (left, upper, right, lower)
             if copy_noBlack:
-                threshold = 0.5
+                threshold = 0.1
                 gray_image = cv2.cvtColor(cropped, cv2.COLOR_BGR2GRAY)
                 total_pixels = gray_image.size
                 black_pixels = np.sum(gray_image < 15)
@@ -172,29 +179,18 @@ class CopyPaste_Possion(BaseTransform):
             
             # cv2.imwrite("crop/crop_tir_{}.png".format(str(self.number)), cropped_2)
             # self.number += 1
-            if use_cache:
-                
-                self.cropp_img.append(copy.deepcopy(cropped))
-                self.cropp_img_2.append(copy.deepcopy(cropped_2))
-                self.cropp_img_class.append(copy.deepcopy(class_name))
-                # if class_name in [1, 3, 4]:
-                #     self.cropp_img.append(copy.deepcopy(cropped))
-                #     self.cropp_img_2.append(copy.deepcopy(cropped_2))
-                #     self.cropp_img_class.append(copy.deepcopy(class_name))
 
-            else:
-                cropp_img.append(copy.deepcopy(cropped))
-                self.cropp_img_2.append(copy.deepcopy(cropped_2))
-                self.cropp_img_class.append(copy.deepcopy(class_name))
+            cropp_img.append(copy.deepcopy(cropped))
+            cropp_img_2.append(copy.deepcopy(cropped_2))
+            cropp_img_class.append(copy.deepcopy(class_name))
         # 判断标签丰富度
         # if len(labels4.tensor.numpy()) <= 20:
         #     mixup_number = 2 * mixup_number
-        if use_cache:
-            mixup_number = random.randint(2, 4)
-        else:
-            max_val = min(len(cropp_img) // 2, mixup_number)
-            mixup_number = random.randint(0, max_val)
-        if len(self.cropp_img) < mixup_number:
+        
+        mixup_number = random.randint(2, 4)
+        max_val = min(len(cropp_img) // 2, mixup_number)
+        mixup_number = random.randint(0, max_val)
+        if len(cropp_img) < mixup_number:
             mixup_number =  0
            
 
@@ -207,7 +203,7 @@ class CopyPaste_Possion(BaseTransform):
             else:
                 index = random.choices(range(0, len(cropp_img)), k=1)[0]
                 im = cropp_img[index].copy()
-                im_2 = self.cropp_img_2[index].copy()
+                im_2 = cropp_img_2[index].copy()
                 class_name = cropp_img_class[index].copy()
             # if bigger:
             #     x_p = self.origin_p[index].copy()[0]
@@ -283,25 +279,26 @@ class CopyPaste_Possion(BaseTransform):
                 #               (0, 0, 0), 2)
                 # cv2.putText(img4_2, str(class_name), (point[0], point[1] ), cv2.FONT_HERSHEY_SIMPLEX, 1,
                 #             (0, 0, 0), 2)
-                # cv2.imwrite("copy/copy_{}.png".format(str(self.number)), img4)
+                # cv2.imwrite("copy/copy_{}.png".format(str(self.number_copy)), img4)
+                # print("save")
         
-                # cv2.imwrite("copy/copy_tir_{}.png".format(str(self.number)), img4_2)
-                # self.number += 1
+                # cv2.imwrite("copy/copy_tir_{}.png".format(str(self.number_copy)), img4_2)
+                # self.number_copy += 1
                 
                 labels4.tensor = torch.cat((labels4.tensor, torch.tensor(labels_single_img)), 0)
 
                 class4 = np.append(class4, class_name)
                 mosaic_ignore_flags = np.append(mosaic_ignore_flags, 0)
-        if use_cache and len(self.cropp_img) >= max_cached_images:
-            index1 = random.choices(range(0, len(self.cropp_img)), k=max_cached_images // 2)
-            counter = 0
-            for index_del in index1:
-                index_del = index_del - counter
-                self.cropp_img.pop(index_del)
-                self.cropp_img_2.pop(index_del)
-                self.cropp_img_class.pop(index_del)
-                # self.origin_p.pop(index_del)
-                counter += 1
+        # if use_cache and len(self.cropp_img) >= max_cached_images:
+        #     index1 = random.choices(range(0, len(self.cropp_img)), k=max_cached_images // 2)
+        #     counter = 0
+        #     for index_del in index1:
+        #         index_del = index_del - counter
+        #         self.cropp_img.pop(index_del)
+        #         self.cropp_img_2.pop(index_del)
+        #         self.cropp_img_class.pop(index_del)
+        #         # self.origin_p.pop(index_del)
+        #         counter += 1
         return img4, img4_2, labels4, class4, mosaic_ignore_flags
 
 
@@ -512,7 +509,7 @@ class BBox_Jitter(BaseTransform):
 
     def __init__(self,
                 prob: float = 0.5,
-                max_shift_px: int = 4,
+                max_shift_px: int = 2,
                 filter_thr_px: int = 1,
                 unchange_thr_px: int = 200) -> None:
         assert 0 <= prob <= 1.0, 'The probability should be in range [0,1]. ' \
@@ -538,9 +535,9 @@ class BBox_Jitter(BaseTransform):
             gt_bbox = gt_bboxes[i].clone()
 
             if (gt_bbox.cxcywh[0, 2:]).min() > self.unchange_thr_px and random.random() < self.prob:
-                random_shift_x = random.randint(-self.max_shift_px,
+                random_shift_x = random.randint(-self.max_shift_px - 1,
                                                 self.max_shift_px)
-                random_shift_y = random.randint(-self.max_shift_px,
+                random_shift_y = random.randint(-self.max_shift_px - 1,
                                                 self.max_shift_px)
                 gt_bbox.translate_([random_shift_x, random_shift_y])
 
