@@ -1,6 +1,6 @@
 # GAIIC 2024挑战赛
 
-Hello, 这里是GAIIC2024双光无人机视角挑战赛第5名羊了个羊队伍的项目介绍文档
+Hello，这里是GAIIC2024双光无人机视角挑战赛第5名羊了个羊队伍的项目介绍文档
 
 **写在前面**
 > 由于我们的团队代码管理全程托管于Github, 而fork的mmdetection的开源性质，因此本代码一直处于public状态, 当前的版本是非常原始的内部实验版本, 整理后的代码将会届时发布在默认的main分支。由于当前代码较为杂乱因此为了快速发布首先整理了本文档, 本文档具体介绍我们比赛中使用的所有增广方案和模型方案（包括失败方案和代码已完成但未进行提交的方案）。
@@ -18,7 +18,7 @@ torchaudio                2.1.0+cu118              pypi_0    pypi
 
 ## 目录
 ### 工程结构
-代码结构遵循原始mmdetetion代码目录，所有增加内容以新增文件的形式体现，为了兼容双光的数据流和模型输入我们添加了位于```mmdet/datasets```下的各种修改组件：
+代码结构遵循原始mmdetection代码目录，所有增加内容以新增文件的形式体现，为了兼容双光的数据流和模型输入，我们添加了位于```mmdet/datasets```下的各种修改组件：
 1) gaiic数据集: 特有的双流Dataset以支持双流数据流结构：```mmdet/datasets/my_coco.py```, ```mmdet/datasets/my_coco_three.py```。
 2) 支持双流随机一致性的各种 transforms（数据增强管道）： ```mmdet/datasets/transforms/my_formatting.py```, ```mmdet/datasets/transforms/my_loading.py```, ```mmdet/datasets/transforms/my_transforms_possion.py```, ```mmdet/datasets/transforms/my_transforms.py```, ```mmdet/datasets/transforms/my_wrapper_three.py```, ```mmdet/datasets/transforms/my_wrapper.py```。其中 ```my_transforms``` 包提供本次比赛大部分数据增强手段, ```my_wrapper```包提供双流随机一致性管道包装类。
 3) 修改过的各种支持双流的模型（主要为backbone）： ```mmdet/models/backbones/dual_swin_cbnet_pki.py```cbnet的多个版本（详见[PPT](assets/2024GAIIC-羊了个羊.pptx)网络结构图）;```mmdet/models/backbones/dual_swin_dcn.py``` 可变形卷积backbone; ```mmdet/models/backbones/dual_swin.py``` SwinTransformer backbone; ```mmdet/models/backbones/dual_resnet.py```  Resnet backbone; ```mmdet/models/backbones/dual_swin_c2former.py``` C^2Former融合模块backbone（该模块需要超大显存，请启用fairscale）; ```mmdet/models/necks/sfp.py``` 运行DINOv2预训练ViT-L backbone需要使用的neck; 
