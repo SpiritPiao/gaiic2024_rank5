@@ -21,9 +21,20 @@ torchaudio                2.1.0+cu118              pypi_0    pypi
 代码结构遵循原始mmdetection代码目录，所有增加内容以新增文件的形式体现，为了兼容双光的数据流和模型输入，我们添加了位于```mmdet/datasets```下的各种修改组件：
 1) gaiic数据集: 特有的双流Dataset以支持双流数据流结构：```mmdet/datasets/my_coco.py```, ```mmdet/datasets/my_coco_three.py```。
 2) 支持双流随机一致性的各种 transforms（数据增强管道）： ```mmdet/datasets/transforms/my_formatting.py```, ```mmdet/datasets/transforms/my_loading.py```, ```mmdet/datasets/transforms/my_transforms_possion.py```, ```mmdet/datasets/transforms/my_transforms.py```, ```mmdet/datasets/transforms/my_wrapper_three.py```, ```mmdet/datasets/transforms/my_wrapper.py```。其中 ```my_transforms``` 包提供本次比赛大部分数据增强手段, ```my_wrapper```包提供双流随机一致性管道包装类。
-3) 修改过的各种支持双流的模型（主要为backbone）： ```mmdet/models/backbones/dual_swin_cbnet_pki.py```cbnet的多个版本（详见[PPT](assets/2024GAIIC-羊了个羊.pptx)网络结构图）;```mmdet/models/backbones/dual_swin_dcn.py``` 可变形卷积backbone; ```mmdet/models/backbones/dual_swin.py``` SwinTransformer backbone; ```mmdet/models/backbones/dual_resnet.py```  Resnet backbone; ```mmdet/models/backbones/dual_swin_c2former.py``` C^2Former融合模块backbone（该模块需要超大显存，请启用fairscale）; ```mmdet/models/necks/sfp.py``` 运行DINOv2预训练ViT-L backbone需要使用的neck; 
+3) 修改过的各种支持双流的模型（主要为backbone）： ```mmdet/models/backbones/dual_swin_cbnet_pki.py```cbnet的多个版本（详见[PPT](assets/2024GAIIC-羊了个羊.pptx)网络结构图）;\
+```mmdet/models/backbones/dual_swin_dcn.py``` 可变形卷积backbone; \
+```mmdet/models/backbones/dual_swin.py``` SwinTransformer backbone; \
+```mmdet/models/backbones/dual_resnet.py```  Resnet backbone; \
+```mmdet/models/backbones/dual_swin_c2former.py``` C^2Former融合模块backbone（该模块需要超大显存，请启用fairscale）; \
+```mmdet/models/necks/sfp.py``` 运行DINOv2预训练ViT-L backbone需要使用的neck; 
 4) MMDetection 支持双流输入需要的数据预处理：```mmdet/models/data_preprocessors/my_data_preprocessor.py```
-5) 为Co-DETR专门设计的支持双流backbone的模型架构：```projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_cbswin.py```支持CBNet的双流模型，有多个版本，最终使用初版; ```projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_pkiv2.py``` PKI架构的多个双流版本; ```projects/CO_DETR/codetr/codetr_dual_stream_reg.py```内嵌多尺度弹性配准网络的双流模型（未提交，可运行） ```projects/CO_DETR/codetr/codetr_dual_stream.py```该架构只能加载普通单流backbone, 作为初期测试使用，运行时会在双流输入分别拷贝两份完全一样的backbone; ```projects/CO_DETR/codetr/codetr_dual_stream_vat.py```该架构支持‘类’虚拟对抗训练（VAT），但实验结果较差，不建议使用。```projects/CO_DETR/codetr/codetr_three_stream.py``` 输入三流的模型架构; ```projects/CO_DETR/codetr/dual_resnet.py```写死backbone的Resnet的双流版本。
+5) 为Co-DETR专门设计的支持双流backbone的模型架构：```projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_cbswin.py```支持CBNet的双流模型，有多个版本，最终使用初版; \
+```projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_pkiv2.py``` PKI架构的多个双流版本; \
+ ```projects/CO_DETR/codetr/codetr_dual_stream_reg.py```内嵌多尺度弹性配准网络的双流模型（未提交，可运行）;\
+  ```projects/CO_DETR/codetr/codetr_dual_stream.py```该架构只能加载普通单流backbone, 作为初期测试使用，运行时会在双流输入分别拷贝两份完全一样的backbone; \
+  ```projects/CO_DETR/codetr/codetr_dual_stream_vat.py```该架构支持‘类’虚拟对抗训练（VAT），但实验结果较差，不建议使用；\
+  ```projects/CO_DETR/codetr/codetr_three_stream.py``` 输入三流的模型架构; \
+  ```projects/CO_DETR/codetr/dual_resnet.py```写死backbone的Resnet的双流版本。
 6) 其他：```projects/CO_DETR/codetr/registration_net.py``` 简单的基于SpcialTransformNet(STN) 的配准网络。
 
 
@@ -135,11 +146,12 @@ test.sh
 在实验过程中我们尝试了许多失败案例，但是并不一定代表这些策略是无效的。
 
 #### 在线配准（隐/显式）
-类似第二名队伍的内嵌配准网络我们实际实验中并没有成功，显式无监督配准网络在`NCC Loss`的目标优化下的配准结果，如下图所示，实验使用的网络架构见：`projects/CO_DETR/codetr/codetr_dual_stream_reg_v2.py` 我们使用了在线的全局小幅度的仿射变换合成原图得到的目标图像来训练该网络 \
+类似第二名队伍的内嵌配准网络我们实际实验中并没有成功，显式无监督配准网络（见VoxelMorph）在`NCC Loss`的目标优化下的配准结果，如下图所示，实验使用的网络架构见：`projects/CO_DETR/codetr/codetr_dual_stream_reg_v2.py` 我们使用了在线的全局小幅度的仿射变换合成原图得到的目标图像来训练该网络 \
 ![Fixed Image](regnet_fixed.jpg) \
 ![Moving Image](regnet_moving.jpg) \
 ![Moved Image](regnet_moved.jpg)
-对于复杂目标的2d配准效果并不好。
+
+对于复杂场景目标的2d配准效果并不好。
 
 #### 深层监督
 使用了类似辅助监督的方式来对其不同层的能力，具体架构见 `projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_pki_deep.py`
@@ -148,14 +160,14 @@ test.sh
 离线配准的配准策略和效果见[PPT](assets/2024GAIIC-羊了个羊.pptx)说明，由于时间紧张我们没有用配准后图像训练， 该部分代码会独立发布。
 
 #### 后处理
-后处理我们只尝试过：检测接2分类（FreightCar和Truck）或6分类网络（5类车辆+背景类）以及移除边界半框和WBF融合
+后处理我们只尝试过：检测接2分类（FreightCar和Truck）或6分类网络（5类车辆+背景类）以及移除边界半框和WBF融合；
 除了WBF有效外全部无效。我们分析是由于分类裁剪的图像丢失了部分全局信息，导致分类网络弱于检测网络。性能比较请见[PPT](assets/2024GAIIC-羊了个羊.pptx)。
 
 #### 自动化的数据清洗或模型抗噪
 手动的清洗策略没有实际应用意义，数据清洗我们采用了基于特征的和基于模型置信度以及综合性的去噪框架（代码以及结果将独立发布）。
-1. 基于特征的：基于标注宽高比，剔除显然错误的标注数据，详见[PPT](assets/2024GAIIC-羊了个羊.pptx)数据集分析章节
-2. 基于模型置信度的：Cleanlab，实际测试效果不佳
-3. 基于LLN的去噪和噪声矫正框架：PLC
+1. 基于特征的：基于标注宽高比，剔除显然错误的标注数据，详见[PPT](assets/2024GAIIC-羊了个羊.pptx)数据集分析章节；
+2. 基于模型置信度的：Cleanlab，实际测试效果不佳；
+3. 基于LLN的去噪和噪声矫正框架：PLS；
 4. 模型抗噪或增强：这里主要指图像噪声而非标注噪声，我们采用一些强增广进行去噪声，1）全图增强。其中HSV这种Color Space增广，以及Yolo提出的Mosaic并不能提升性能（但是第2，3名重新发现(?)的FastMosaic似乎得到了和我们相反的结论）。2）特征抗噪。见`projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_vat.py`和 VAT 介绍，我们没有采用真正的虚拟对抗训练而是使用了高斯分布的噪声。
 
 ### 成功的策略
@@ -163,15 +175,15 @@ test.sh
 
 #### 非对称增广
 由于TIR和RGB的图像存在空间和模态的不一致性，因此在训练过程中做非对称增广（两幅图做略微不同的增广）可以增强泛化性能：
-1. 小幅不同的2d仿射变换 （平移缩放旋转）,有利于模型自动学习到全局变换
-2. 不同的亮度变换
-3. 对TIR做CLAHE，保持训练测试的图像锐度一致性
-4. 模糊（Montion or Guassian Blur）
-5. RGB使用DarkChannel进行夜间提亮
+1. 小幅不同的2d仿射变换（平移缩放旋转）[Here](mmdet/datasets/transforms/my_transforms.py),有利于模型自动学习到全局变换；
+2. 不同的亮度变换；
+3. 对TIR做CLAHE，保持训练测试的图像锐度一致性；
+4. 模糊（Montion or Gaussian Blur）；
+5. RGB使用[Dark Channel](mmdet/datasets/transforms/my_transforms.py)进行夜间提亮。
 
 #### 对称增广和TTA
-1. 大幅度的2d仿射变换 （平移缩放旋转）
-2. TTA中的Flip操作（也可以认为TTA是模型集成）
+1. 大幅度的2d仿射变换 （平移缩放旋转）；
+2. TTA中的Flip操作（也可以认为TTA是模型集成）。
 
 #### 模型集成
 1. 稳定的性能提升方案，也中可以考虑在Class Head和Box Head进行多种方式融合，通用检测模型的融合方案则建议使用WBF（加权的框融合，Weighted Box Fusion）
