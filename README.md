@@ -38,7 +38,7 @@ python convert_visdrone_to_coco_drop_fcar.py
 ```
 
 请手动合并赛事数据集和额外数据集。
-合并后的数据需要为以下形式, 其中 `*.json` 文件需要为`COCO`的标注文件格式：
+合并后的数据目录形式需要为下方树状图所示, 其中 `*.json` 文件需要为`COCO`的标注文件格式：
 ``` shell
 `-- data_root_name
     |-- test.json
@@ -60,6 +60,14 @@ python convert_visdrone_to_coco_drop_fcar.py
 
 ### 训练
 我们使用最佳模型配置文件为例来阐述如何训练:
+
+需要准备预训练权重并下载在项目根目录：
+```
+wget https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth
+
+wget https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth
+```
+
 
 #### 数据文件路径
 请首先检查配置文件是否存在，实验中的最佳配置文件路径如下：
@@ -85,6 +93,15 @@ train_with_Vis_3cls_cbpki.sh
 可以参考实际硬件情况修改。
 
 ### 测试
+我们的最佳单模型训练权重文件（对应上述最佳模型配置文件）如下：
+链接: https://pan.baidu.com/s/1bdGinK7VRhQ88j92WDY0rA 提取码: hjk4
+保存于任意路径，假设保存于：path/to/model.path
+
+在配置文件前添加：
+``` python
+load_from = "path/to/model.path"
+```
+以加载训练权重。
 
 #### 测试脚本
 以单机双卡GPU服务器，config路径为：`path/to/config.py`， 模型参数路径：`path/to/model.pth` 的实验环境为例
