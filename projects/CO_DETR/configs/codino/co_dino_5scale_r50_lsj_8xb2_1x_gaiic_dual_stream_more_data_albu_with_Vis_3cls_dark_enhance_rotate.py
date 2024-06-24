@@ -6,24 +6,27 @@ _base_ = 'mmdet::common/ssj_270k_coco-instance.py'
 # from .my_loading import LoadImageFromFile2
 # from .my_wrapper import Image2Broadcaster, Branch
 # from .my_formatting import DoublePackDetInputs
-custom_imports = dict(imports=['projects.CO_DETR.codetr.codetr_dual_stream',
-                               'mmdet.datasets.transforms.my_loading',
-                               'mmdet.datasets.transforms.my_wrapper',
-                               'mmdet.datasets.transforms.my_formatting',
-                               'mmdet.models.data_preprocessors.my_data_preprocessor',
-                               'mmdet.datasets.transforms.my_transforms_possion',
-                               'mmdet.datasets.my_coco',
-                               'projects.CO_DETR.codetr'
-                               ], allow_failed_imports=False)
+import sys
+# sys.path.append("/nasdata/private/zwlu/detection/Gaiic1/mmdetection")
+
+custom_imports = dict(imports=[
+            'projects.CO_DETR.codetr.codetr_dual_stream',
+            'mmdet.datasets.transforms.my_loading',
+            'mmdet.datasets.transforms.my_wrapper',
+            'mmdet.datasets.transforms.my_formatting',
+            'mmdet.models.data_preprocessors.my_data_preprocessor',
+            'mmdet.datasets.transforms.my_transforms_possion',
+            'mmdet.datasets.my_coco',
+            'projects.CO_DETR.codetr'
+            ], allow_failed_imports=False)
 
 dataset_type = 'DualStreamCocoDataset'
-data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/GAIIC2024/'
-data_root = '/root/workspace/data/GAIIC2024/'
+data_root = '/nasdata/private/zwlu/detection/Gaiic1/projects/data/mmdet/gaiic/mix_all/'
+# data_root = '/root/workspace/data/GAIIC2024/'
 data_root_vis = '/root/workspace/data/DroneVehicle/coco_format/'
 # pretrained = 'https://github.com/SwinTransformer/storage/releases/download/v1.0.0/swin_large_patch4_window12_384_22k.pth'  # noqa
 # load_from = 'https://download.openmmlab.com/mmdetection/v3.0/codetr/co_dino_5scale_swin_large_16e_o365tococo-614254c9.pth'  # noqa
 
-image_size = (1024, 1024)
 image_size = (1024, 1024)
 num_classes = 5
 classes = ('car', 'truck', 'bus', 'van', 'freight_car')
@@ -338,7 +341,7 @@ load_pipeline = [
                     ratio_range=(0.5, 2.0),
                     keep_ratio=True),
                 dict(
-                    type='RandomCrop',
+                    type='RandomCropX',
                     crop_type='absolute_range',
                     crop_size=image_size,
                     recompute_bbox=True,
@@ -384,8 +387,8 @@ train_dataloader = dict(
             filter_cfg=dict(filter_empty_gt=True, min_size=8),
 
             data_root=data_root,
-            ann_file='merged_coco_new_vis_3cls.json',
-            data_prefix=dict(img='train_with_Vis_3cls/rgb'),
+            ann_file='merged_coco_new_vis_3cls_fix_van.json',
+            data_prefix=dict(img='train/rgb'),
             pipeline=train_pipeline
         )
    )
@@ -441,7 +444,7 @@ val_evaluator = dict(
     type='CocoMetric',
     metric='bbox',
     classwise=True,
-    ann_file=data_root + 'val.json')
+    ann_file=data_root + 'val_fix_van.json')
 # val_evaluator = dict(
 #     type='CocoMetric',
 #     metric='bbox',
@@ -453,12 +456,12 @@ val_dataloader = dict(
     dataset=dict(
         type=dataset_type,
         metainfo=dict(classes=classes),
-        # data_root=data_root,
-        data_root='/root/workspace/3-12-data/',
+        data_root=data_root,
+        # data_root='/root/workspace/3-12-data/',
         test_mode=True,
         ann_file='val.json',
         # data_prefix=dict(img='images/cycle_gan/val/rgb'),
-        data_prefix=dict(img='cyclegan_val/rgb/'),
+        data_prefix=dict(img='val/rgb/'),
         pipeline=val_pipeline))
 # val_dataloader = dict(dataset=dict(
 #         type=dataset_type,
@@ -473,27 +476,28 @@ test_cfg = dict(type='TestLoop')
 test_dataloader = val_dataloader
 test_evaluator = val_evaluator
 
-test_evaluator = dict(
-    type='CocoMetric',
-    metric='bbox',
-    format_only=True,
-    # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
-    # outfile_prefix='./VisDrone2019'
-    ann_file=data_root + 'instances_test2017.json',
-    outfile_prefix='./dual_test_result_cyclegan'
-)
+# test_evaluator = dict(
+#     type='CocoMetric',
+#     metric='bbox',
+#     format_only=True,
+#     # ann_file='/root/workspace/data/Visdrone/' + 'orin_text/5cls/train.json',
+#     # outfile_prefix='./VisDrone2019'
+    
+#     ann_file=data_root + 'instances_test2017.json',
+#     outfile_prefix='./dual_test_result'
+# )
 
-test_dataloader = dict(dataset=dict(
-        type=dataset_type,
-        metainfo=dict(classes=classes),
-        # data_root = data_root,
-        data_root='/root/workspace/3-12-data/',
-        # ann_file='orin_text/5cls/train.json',
-        data_prefix=dict(img='cyclegan_test/rgb/'),
+# test_dataloader = dict(dataset=dict(
+#         type=dataset_type,
+#         metainfo=dict(classes=classes),
+#         data_root = data_root,
+#         # data_root='/root/workspace/3-12-data/',
+#         # ann_file='orin_text/5cls/train.json',
+#         # data_prefix=dict(img='cyclegan_test/rgb/'),
         
-        ann_file='instances_test2017.json',
-        # data_prefix=dict(img='test/rgb'),
-        pipeline=test_pipeline))
+#         ann_file='instances_test2017.json',
+#         data_prefix=dict(img='test/rgb'),
+#         pipeline=test_pipeline))
 
 
 optim_wrapper = dict(

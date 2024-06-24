@@ -1,4 +1,4 @@
-from DCNv4.modules.dcnv4 import DCNv4
+# from DCNv4.modules.dcnv4 import DCNv4
 import torch.nn as nn
 from ..layers.pkinet import PKIOwn
 from .ops_dcnv3.modules import DCNv3
@@ -7,7 +7,7 @@ class DCNV4_YOLO(nn.Module):
         super().__init__()
         if inc != ouc:
             self.stem_conv = Conv(inc, ouc, k=1)
-        self.dcnv4 = DCNv4(ouc, kernel_size=k, stride=s, pad=autopad(k, p, d), group=g, dilation=d)
+        # self.dcnv4 = DCNv4(ouc, kernel_size=k, stride=s, pad=autopad(k, p, d), group=g, dilation=d)
         self.bn = nn.BatchNorm2d(ouc)
         self.act = nn.SiLU()
 

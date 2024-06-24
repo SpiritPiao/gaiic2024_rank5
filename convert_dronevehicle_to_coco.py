@@ -173,6 +173,6 @@ def convert(mode: str = 'train'):
 
 
 if __name__ == '__main__':
-    # convert('train')
-    # convert('val')
+    convert('train')
+    convert('val')
     convert('test')

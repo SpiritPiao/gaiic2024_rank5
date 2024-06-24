@@ -18,7 +18,7 @@ from mmengine.utils import to_2tuple
 
 from mmdet.registry import MODELS
 from ..layers import PatchEmbed, PatchMerging
-from .own import DCNV4_YOLO, DCNV4_CSP, PKIOwn, DCNV3_CSP
+# from .own import DCNV4_YOLO, DCNV4_CSP, PKIOwn, DCNV3_CSP
 class WindowMSA(BaseModule):
     """Window based multi-head self-attention (W-MSA) module with relative
     position bias.
