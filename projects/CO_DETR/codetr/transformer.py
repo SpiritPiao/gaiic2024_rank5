@@ -301,11 +301,14 @@ class DeformableDetrTransformer(Transformer):
         output_proposals_valid = ((output_proposals > 0.01) &
                                   (output_proposals < 0.99)).all(
                                       -1, keepdim=True)
+        _inf = float('inf')
+        if hasattr(self, 'export') and self.export:
+            _inf = 65504.
         output_proposals = torch.log(output_proposals / (1 - output_proposals))
         output_proposals = output_proposals.masked_fill(
-            memory_padding_mask.unsqueeze(-1), float('inf'))
+            memory_padding_mask.unsqueeze(-1), _inf)
         output_proposals = output_proposals.masked_fill(
-            ~output_proposals_valid, float('inf'))
+            ~output_proposals_valid, _inf)
 
         output_memory = memory
         output_memory = output_memory.masked_fill(

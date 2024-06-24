@@ -36,7 +36,7 @@ model = dict(
 
 optim_wrapper = dict(optimizer=dict(lr=1e-4))
 
-max_epochs = 6
+max_epochs = 8
 train_cfg = dict(max_epochs=max_epochs)
 
 param_scheduler = [
@@ -45,7 +45,7 @@ param_scheduler = [
         begin=0,
         end=max_epochs,
         by_epoch=True,
-        milestones=[2],
+        milestones=[3],
         gamma=0.1)
 ]
 
