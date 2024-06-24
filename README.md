@@ -5,7 +5,16 @@ Hello, 这里是GAIIC2024双光无人机视角挑战赛第5名羊了个羊队伍
 **写在前面**
 > 由于我们的团队代码管理全程托管于Github, 而fork的mmdetection的开源性质，因此本代码一直处于public状态, 当前的版本是非常原始的内部实验版本, 整理后的代码将会届时发布在默认的main分支。由于当前代码较为杂乱因此为了快速发布首先整理了本文档, 本文档具体介绍我们比赛中使用的所有增广方案和模型方案（包括失败方案和代码已完成但未进行提交的方案）。
 
-我们假设使用者熟练使用MMdetection， 若需要安装环境请参考该文件中[MMdetection的README部分](#end)
+我们假设使用者熟练使用MMdetection， 若需要安装环境请参考该文件中[MMdetection的README部分](#end)，实验中的版本如下[团队合作中存在版本不一致， 以下为A100_80Gx2服务器环境配置，更多实验在H800x8上进行]：
+```
+mmcv                      2.1.0                    pypi_0    pypi
+mmdet                     3.3.0                    pypi_0    pypi
+mmengine                  0.10.4                   pypi_0    pypi
+tensorboard               2.14.0                   pypi_0    pypi
+timm                      0.9.16                   pypi_0    pypi
+torch                     2.1.0+cu118              pypi_0    pypi
+torchaudio                2.1.0+cu118              pypi_0    pypi
+```
 
 ## 目录
 ### 工程结构
