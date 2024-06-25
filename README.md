@@ -154,7 +154,7 @@ test.sh
 对于复杂场景目标的2d配准效果并不好。
 
 #### 深层监督
-使用了类似辅助监督的方式来对其不同层的能力，具体架构见 `projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_pki_deep.py`
+使用了类似辅助监督的方式来对齐不同层的能力，具体架构见 `projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_pki_deep.py`
 
 #### 离线配准
 离线配准的配准策略和效果见[PPT](assets/2024GAIIC-羊了个羊.pptx)说明，由于时间紧张我们没有用配准后图像训练， 该部分代码会独立发布。
@@ -167,8 +167,8 @@ test.sh
 手动的清洗策略没有实际应用意义，数据清洗我们采用了基于特征的和基于模型置信度以及综合性的去噪框架（代码以及结果将独立发布）。
 1. 基于特征的：基于标注宽高比，剔除显然错误的标注数据，详见[PPT](assets/2024GAIIC-羊了个羊.pptx)数据集分析章节；
 2. 基于模型置信度的：Cleanlab，实际测试效果不佳；
-3. 基于LLN的去噪和噪声矫正框架：PLS；
-4. 模型抗噪或增强：这里主要指图像噪声而非标注噪声，我们采用一些强增广进行去噪声，1）全图增强。其中HSV这种Color Space增广，以及Yolo提出的Mosaic并不能提升性能（但是第2，3名重新发现(?)的FastMosaic似乎得到了和我们相反的结论）。2）特征抗噪。见`projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_vat.py`和 VAT 介绍，我们没有采用真正的虚拟对抗训练而是使用了高斯分布的噪声。
+3. 基于LNL（Learning with Noisy Labels）的去噪和噪声矫正框架：PLS；
+4. 模型抗噪或增强：这里主要指图像噪声而非标注噪声，我们采用一些强增广进行去噪声，1）全图增强。其中HSV这种基于Color Space的增广，以及Yolo提出的Mosaic并不能提升性能（但是第2，3名的FastMosaic和该方式完全等价但似乎得到了和我们相反的结论）。2）特征抗噪。见`projects/CO_DETR/codetr/codetr_dual_stream_dual_swin_vat.py`和[VAT](https://github.com/fff455/tech-share/blob/master/MachineLearning/%E8%99%9A%E6%8B%9F%E5%AF%B9%E6%8A%97%E8%AE%AD%E7%BB%83.md)介绍，我们没有采用真正的虚拟对抗训练而是使用了高斯分布的噪声。
 
 ### 成功的策略
 以下策略是比赛中在A榜上有效策略，但是一些策略可能和数据集和模型架构有一定耦合可能不能在所有数据集和模型上稳定生效。增广方案代码位于 `mmdet/datasets/transforms/my_transforms.py`
@@ -186,7 +186,7 @@ test.sh
 2. TTA中的Flip操作（也可以认为TTA是模型集成）。
 
 #### 模型集成
-1. 稳定的性能提升方案，也中可以考虑在Class Head和Box Head进行多种方式融合，通用检测模型的融合方案则建议使用WBF（加权的框融合，Weighted Box Fusion）
+1. 稳定的性能提升方案，也可以考虑在Class Head和Box Head进行融合，通用检测模型的融合方案则建议使用WBF（加权的框融合，Weighted Boxes Fusion）
 
 #### 较大模型抗噪
 1. 清洗数据集和非清洗数据集性能一致，我们推测较大的模型会有更好的抗标注噪声的能力
